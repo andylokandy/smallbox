@@ -21,7 +21,10 @@
 //! # Overview
 //! This crate delivers two core type:
 //!
-//!  `StackBox<T>`: Represents a fixed-capacity allocation, and on stack stores dynamically-sized type. The `new` method on this type allows creating a instance from a concrete type, returning `Err(value)` if the instance is too large for the allocated region. So far, the fixed-capcity is about four words (4 * `sizeof(usize)`)
+//!  `StackBox<T>`: Represents a fixed-capacity allocation, and on stack stores dynamically-sized type. 
+//!    The `new` method on this type allows creating a instance from a concrete type, 
+//!    returning `Err(value)` if the instance is too large for the allocated region. 
+//!    So far, the fixed-capcity is about four words (4 * `sizeof(usize)`)
 //!
 //!  `SmallBox<T>`: Takes `StackBox<T>` as an varience, and fallback to `Box<T>` when type `T` is too large for `StackBox<T>`.
 //!
@@ -40,7 +43,9 @@
 //! assert_eq!(closure(), "Hello, world!");
 //! ```
 //!
-//! The other uses is to eliminate heap alloction for small things, only when the object is large enough to allocte. In addition, the inner `StackBox<T>` or `Box<T>` can be moved out by explicitely pattern matching on `SmallBox<T>`.
+//! The other uses is to eliminate heap alloction for small things, only when 
+//! the object is large enough to allocte. 
+//! In addition, the inner `StackBox<T>` or `Box<T>` can be moved out by explicitely pattern matching on `SmallBox<T>`.
 //!
 //! ```rust
 //! use smallbox::SmallBox;
