@@ -1,19 +1,16 @@
 extern crate smallbox;
 
-use smallbox::SmallBox;
+use smallbox::StackBox;
 
-#[test]
 // A trivial check that ensures that methods are correctly called
-fn trivial_type() {
-    let val = SmallBox::<PartialEq<u32>>::new(1234u32).unwrap();
+#[test]
+fn basic() {
+    let val = StackBox::<PartialEq<u32>>::new(1234u32).unwrap();
     assert!(*val == 1234);
-    assert!(*val != 1233);
 }
 
 #[test]
-// Create an instance with a Drop implementation, and ensure the drop handler fires when destructed
-// This also ensures that lifetimes are correctly handled
-fn ensure_drop() {
+fn _drop() {
     use std::cell::Cell;
     #[derive(Debug)]
     struct Struct<'a>(&'a Cell<bool>);
@@ -24,7 +21,7 @@ fn ensure_drop() {
     }
 
     let flag = Cell::new(false);
-    let val: SmallBox<::std::fmt::Debug> = SmallBox::new(Struct(&flag)).unwrap();
+    let val: StackBox<::std::fmt::Debug> = StackBox::new(Struct(&flag)).unwrap();
     assert!(flag.get() == false);
     drop(val);
     assert!(flag.get() == true);
@@ -37,7 +34,7 @@ fn many_instances() {
     }
 
     #[inline(never)]
-    fn instance_one() -> SmallBox<TestTrait> {
+    fn instance_one() -> StackBox<TestTrait> {
         #[derive(Debug)]
         struct OneStruct(u32);
         impl TestTrait for OneStruct {
@@ -45,11 +42,11 @@ fn many_instances() {
                 self.0
             }
         }
-        SmallBox::new(OneStruct(12345)).unwrap()
+        StackBox::new(OneStruct(12345)).unwrap()
     }
 
     #[inline(never)]
-    fn instance_two() -> SmallBox<TestTrait> {
+    fn instance_two() -> StackBox<TestTrait> {
         #[derive(Debug)]
         struct TwoStruct;
         impl TestTrait for TwoStruct {
@@ -57,17 +54,17 @@ fn many_instances() {
                 54321
             }
         }
-        SmallBox::new(TwoStruct).unwrap()
+        StackBox::new(TwoStruct).unwrap()
     }
 
     #[inline(never)]
-    fn instance_three() -> SmallBox<[u8]> {
-        SmallBox::new([0; 8]).unwrap()
+    fn instance_three() -> StackBox<[u8]> {
+        StackBox::new([0; 8]).unwrap()
     }
 
     let i1 = instance_one();
     let i2 = instance_two();
-    let i3: SmallBox<[u8]> = instance_three();
+    let i3: StackBox<[u8]> = instance_three();
     assert_eq!(i1.get_value(), 12345);
     assert_eq!(i2.get_value(), 54321);
     assert_eq!(i3.len(), 8);
@@ -77,9 +74,7 @@ fn many_instances() {
 #[test]
 fn closure() {
     let v1 = 1234u64;
-    let c: SmallBox<Fn() -> String> = SmallBox::new(|| format!("{}", v1))
-        .map_err(|_| "Oops")
-        .unwrap();
+    let c: StackBox<Fn() -> String> = StackBox::new(|| format!("{}", v1)).ok().unwrap();
     assert_eq!(c(), "1234");
 }
 
@@ -87,7 +82,11 @@ fn closure() {
 #[test]
 fn oversize() {
     use std::any::Any;
-    const MAX_SIZE_PTRS: usize = 4;
-    assert!(SmallBox::<Any>::new([0usize; MAX_SIZE_PTRS]).is_ok());
-    assert!(SmallBox::<Any>::new([0usize; MAX_SIZE_PTRS + 1]).is_err());
+    const MAX_SIZE: usize = 4;
+    assert!(StackBox::<Any>::new([0usize; MAX_SIZE]).is_ok());
+    assert_eq!(StackBox::<[usize]>::new([0usize; MAX_SIZE])
+                   .unwrap()
+                   .len(),
+               MAX_SIZE);
+    assert!(StackBox::<Any>::new([0usize; MAX_SIZE + 1]).is_err());
 }

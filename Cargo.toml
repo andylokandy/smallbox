@@ -6,5 +6,5 @@ description = "A wrapper that allows storage of unsized values of up to a fixed 
 repository = "https://github.com/thepowersgang/stack_dst-rs"
 documentation = "http://thepowersgang.github.io/stack_dst-rs/target/doc/stack_dst/"
 keywords = ["box", "alloc","nightly", "stack", "no_std"]
-license = "MIT OR Apache-2.0"
+license = "MIT"
 

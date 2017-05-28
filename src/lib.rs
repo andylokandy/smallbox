@@ -10,12 +10,10 @@ pub const DEFAULT_SIZE: usize = 4 + 1;
 
 type Space = [usize; DEFAULT_SIZE];
 
-/// Stack-allocated dynamically sized type
-pub struct SmallBox<T: ?Sized> {
-    // force alignment to be word
+pub struct StackBox<T: ?Sized> {
+    // force alignment to be usize
     _align: [usize; 0],
     _pd: marker::PhantomData<T>,
-    // (T, (padding), fat_pointer_info)
     space: Space,
 }
 
@@ -24,26 +22,25 @@ unsafe fn ptr_as_slice<'p, T: ?Sized>(ptr: &'p mut *const T) -> &'p mut [usize] 
     slice::from_raw_parts_mut(ptr as *mut _ as *mut usize, words)
 }
 
-impl<T: ?Sized> SmallBox<T> {
-    pub fn new<U>(val: U) -> Result<SmallBox<T>, U>
+impl<T: ?Sized> StackBox<T> {
+    pub fn new<U>(val: U) -> Result<StackBox<T>, U>
         where U: marker::Unsize<T>
     {
         if mem::size_of::<&T>() + mem::size_of::<U>() - mem::size_of::<usize>() >
            mem::size_of::<Space>() {
-            return Err(val);
-            // TODO:
+            Err(val)
         } else {
-            return unsafe { Ok(Self::new_inline(val)) };
+            unsafe { Ok(Self::box_up(val)) }
         }
     }
 
-    pub unsafe fn new_inline<U>(val: U) -> SmallBox<T>
+    /// store value data and metadata(for example: array length)
+    unsafe fn box_up<U>(val: U) -> StackBox<T>
         where U: marker::Unsize<T>
     {
-        // fat pointer (cast to avoid brrowck)
+        // raw fat pointer
         // memory layout: (ptr: usize, info: [usize])
         let mut ptr: *const T = &val;
-        // let mut ptr: &T = &*(&val as *const T);
 
         let ptr_words = ptr_as_slice(&mut ptr);
 
@@ -74,13 +71,14 @@ impl<T: ?Sized> SmallBox<T> {
 
         mem::forget(val);
 
-        SmallBox {
+        StackBox {
             _align: [],
             _pd: marker::PhantomData,
             space: space,
         }
     }
 
+    /// make a fat pointer to self.space with metadata
     unsafe fn as_fat_ptr(&self) -> *const T {
         let mut ptr: *const T = mem::zeroed();
 
@@ -100,7 +98,8 @@ impl<T: ?Sized> SmallBox<T> {
         ptr as _
     }
 }
-impl<T: ?Sized> ops::Deref for SmallBox<T> {
+
+impl<T: ?Sized> ops::Deref for StackBox<T> {
     type Target = T;
 
     fn deref(&self) -> &T {
@@ -108,13 +107,13 @@ impl<T: ?Sized> ops::Deref for SmallBox<T> {
     }
 }
 
-impl<T: ?Sized> ops::DerefMut for SmallBox<T> {
+impl<T: ?Sized> ops::DerefMut for StackBox<T> {
     fn deref_mut(&mut self) -> &mut T {
         unsafe { &mut *(self.as_fat_ptr() as *mut T) }
     }
 }
 
-impl<T: ?Sized> ops::Drop for SmallBox<T> {
+impl<T: ?Sized> ops::Drop for StackBox<T> {
     fn drop(&mut self) {
         unsafe { ptr::drop_in_place(&mut **self) }
     }
