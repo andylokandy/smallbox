@@ -3,12 +3,24 @@ use std::marker;
 
 use super::StackBox;
 
+/// Stack allocation with heap fallback
+///
+/// # Examples
+///
+/// ```
+/// use smallbox::SmallBox;
+/// 
+/// let val: SmallBox<PartialEq<usize>> = SmallBox::new(5usize);
+/// 
+/// assert!(*val == 5)
+/// ```
 pub enum SmallBox<T: ?Sized> {
     Stack(StackBox<T>),
     Box(Box<T>),
 }
 
 impl<T: ?Sized> SmallBox<T> {
+    /// Box val on stack or heap depending on its size
     pub fn new<U>(val: U) -> SmallBox<T>
         where U: marker::Unsize<T>
     {

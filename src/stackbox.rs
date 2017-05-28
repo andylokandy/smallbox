@@ -4,10 +4,21 @@ use std::ptr;
 use std::slice;
 use std::marker;
 
-pub const DEFAULT_SIZE: usize = 4 + 1;
+const DEFAULT_SIZE: usize = 4 + 1;
 
 type Space = [usize; DEFAULT_SIZE];
 
+/// On-stack allocation for dynamically-sized type.
+///
+/// # Examples
+///
+/// ```
+/// use smallbox::StackBox;
+/// 
+/// let val: StackBox<PartialEq<usize>> = StackBox::new(5usize).unwrap();
+/// 
+/// assert!(*val == 5)
+/// ```
 pub struct StackBox<T: ?Sized> {
     // force alignment to be usize
     _align: [usize; 0],
@@ -21,6 +32,18 @@ unsafe fn ptr_as_slice<'p, T: ?Sized>(ptr: &'p mut *const T) -> &'p mut [usize] 
 }
 
 impl<T: ?Sized> StackBox<T> {
+    /// Alloc on stack and try to box val, return Err<T> 
+    /// when val is too large (about 4 words)
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use std::any::Any;
+    /// use smallbox::StackBox;
+    /// 
+    /// assert!(StackBox::<Any>::new(5usize).is_ok());
+    /// assert!(StackBox::<Any>::new([5usize; 8]).is_err());
+    /// ```
     pub fn new<U>(val: U) -> Result<StackBox<T>, U>
         where U: marker::Unsize<T>
     {
@@ -32,7 +55,7 @@ impl<T: ?Sized> StackBox<T> {
         }
     }
 
-    /// store value data and metadata(for example: array length)
+    // store value and metadata(for example: array length)
     unsafe fn box_up<U>(val: U) -> StackBox<T>
         where U: marker::Unsize<T>
     {
@@ -76,7 +99,7 @@ impl<T: ?Sized> StackBox<T> {
         }
     }
 
-    /// make a fat pointer to self.space with metadata
+    // make a fat pointer to self.space with metadata
     pub(crate) unsafe fn as_fat_ptr(&self) -> *const T {
         let mut ptr: *const T = mem::zeroed();
 

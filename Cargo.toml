@@ -1,9 +1,9 @@
 [package]
 name = "smallbox"
-version = "0.3.1"
-authors = [ "John Hodge <tpg@mutabah.net>" ]
-description = "A wrapper that allows storage of unsized values of up to a fixed size on the stack (requires nighly currently, to drop unsized types)"
-repository = "https://github.com/thepowersgang/stack_dst-rs"
-documentation = "http://thepowersgang.github.io/stack_dst-rs/target/doc/stack_dst/"
-keywords = ["box", "alloc","nightly", "stack", "no_std"]
+version = "0.2.1"
+authors = ["goandylok"]
+description = "Box dynamically-sized types on stack"
+repository = "https://github.com/goandylok/smallbox"
+documentation = "https://docs.rs/smallbox/"
+keywords = ["box", "alloc", "dst", "stack", "no_std"]
 license = "MIT"
