@@ -1,17 +1,33 @@
 extern crate smallbox;
 
 use smallbox::StackBox;
+use smallbox::SmallBox;
 
-// A trivial check that ensures that methods are correctly called
 #[test]
 fn basic() {
-    let val = StackBox::<PartialEq<u32>>::new(1234u32).unwrap();
-    assert!(*val == 1234);
+    let stack = StackBox::<PartialEq<u32>>::new(1234u32).unwrap();
+    assert!(*stack == 1234);
+
+    let small_stack = SmallBox::<PartialEq<u32>>::new(4321u32);
+    assert!(*small_stack == 4321);
+    match small_stack {
+        SmallBox::Stack(_) => (),
+        _ => unreachable!(),
+    }
+
+    let small_heap = SmallBox::<[usize]>::new([5; 1000]);
+    assert!(small_heap.iter().eq([5; 1000].iter()));
+    match small_heap {
+        SmallBox::Box(_) => (),
+        _ => unreachable!(),
+    }
 }
 
 #[test]
-fn _drop() {
+fn test_drop() {
     use std::cell::Cell;
+    use std::fmt::Debug;
+
     #[derive(Debug)]
     struct Struct<'a>(&'a Cell<bool>);
     impl<'a> Drop for Struct<'a> {
@@ -21,7 +37,19 @@ fn _drop() {
     }
 
     let flag = Cell::new(false);
-    let val: StackBox<::std::fmt::Debug> = StackBox::new(Struct(&flag)).unwrap();
+    let val: StackBox<Debug> = StackBox::new(Struct(&flag)).unwrap();
+    assert!(flag.get() == false);
+    drop(val);
+    assert!(flag.get() == true);
+
+    let flag = Cell::new(false);
+    let val: SmallBox<Debug> = SmallBox::new(Struct(&flag));
+    assert!(flag.get() == false);
+    drop(val);
+    assert!(flag.get() == true);
+
+    let flag = Cell::new(false);
+    let val: SmallBox<Debug> = SmallBox::new(Struct(&flag));
     assert!(flag.get() == false);
     drop(val);
     assert!(flag.get() == true);
@@ -33,7 +61,6 @@ fn many_instances() {
         fn get_value(&self) -> u32;
     }
 
-    #[inline(never)]
     fn instance_one() -> StackBox<TestTrait> {
         #[derive(Debug)]
         struct OneStruct(u32);
@@ -45,7 +72,6 @@ fn many_instances() {
         StackBox::new(OneStruct(12345)).unwrap()
     }
 
-    #[inline(never)]
     fn instance_two() -> StackBox<TestTrait> {
         #[derive(Debug)]
         struct TwoStruct;
@@ -57,7 +83,6 @@ fn many_instances() {
         StackBox::new(TwoStruct).unwrap()
     }
 
-    #[inline(never)]
     fn instance_three() -> StackBox<[u8]> {
         StackBox::new([0; 8]).unwrap()
     }
@@ -70,23 +95,26 @@ fn many_instances() {
     assert_eq!(i3.len(), 8);
 }
 
-
 #[test]
-fn closure() {
-    let v1 = 1234u64;
-    let c: StackBox<Fn() -> String> = StackBox::new(|| format!("{}", v1)).ok().unwrap();
+fn test_closure() {
+    let c: StackBox<Fn() -> String> = StackBox::new(|| format!("{}", 1234u64)).ok().unwrap();
     assert_eq!(c(), "1234");
 }
 
-
 #[test]
-fn oversize() {
-    use std::any::Any;
+fn test_heap_fallback() {
     const MAX_SIZE: usize = 4;
-    assert!(StackBox::<Any>::new([0usize; MAX_SIZE]).is_ok());
-    assert_eq!(StackBox::<[usize]>::new([0usize; MAX_SIZE])
-                   .unwrap()
-                   .len(),
-               MAX_SIZE);
-    assert!(StackBox::<Any>::new([0usize; MAX_SIZE + 1]).is_err());
+
+    let fit = StackBox::<[usize]>::new([0; MAX_SIZE]);
+    let oversize = StackBox::<[usize]>::new([0; MAX_SIZE + 1]);
+    assert!(fit.is_ok());
+    assert!(oversize.is_err());
+    assert_eq!(fit.unwrap().len(), MAX_SIZE);
+
+    let small = SmallBox::<[usize]>::new([8; MAX_SIZE]);
+    let medium = SmallBox::<[usize]>::new([7; MAX_SIZE + 1]);
+    let huge = SmallBox::<[usize]>::new([6; 10000]);
+    assert!(small.iter().eq([8; MAX_SIZE].iter()));
+    assert!(medium.iter().eq([7; MAX_SIZE + 1].iter()));
+    assert!(huge.iter().eq([6; 10000].iter()));
 }
