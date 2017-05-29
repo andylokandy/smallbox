@@ -1,5 +1,6 @@
 use std::ops;
 use std::marker;
+use std::fmt;
 use std::hash;
 use std::hash::Hash;
 use std::cmp::Ordering;
@@ -51,6 +52,28 @@ impl<T: ?Sized> ops::DerefMut for SmallBox<T> {
             SmallBox::Stack(ref mut x) => &mut *x,
             SmallBox::Box(ref mut x) => &mut *x,
         }
+    }
+}
+
+
+impl<T: fmt::Display + ?Sized> fmt::Display for SmallBox<T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        fmt::Display::fmt(&**self, f)
+    }
+}
+
+impl<T: fmt::Debug + ?Sized> fmt::Debug for SmallBox<T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        fmt::Debug::fmt(&**self, f)
+    }
+}
+
+impl<T: ?Sized> fmt::Pointer for SmallBox<T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        // It's not possible to extract the inner Uniq directly from the Box,
+        // instead we cast it to a *const which aliases the Unique
+        let ptr: *const T = &**self;
+        fmt::Pointer::fmt(&ptr, f)
     }
 }
 

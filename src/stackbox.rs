@@ -3,6 +3,7 @@ use std::mem;
 use std::ptr;
 use std::slice;
 use std::marker;
+use std::fmt;
 use std::hash;
 use std::hash::Hash;
 use std::cmp::Ordering;
@@ -35,7 +36,7 @@ unsafe fn ptr_as_slice<'p, T: ?Sized>(ptr: &'p mut *const T) -> &'p mut [usize] 
 }
 
 impl<T: ?Sized> StackBox<T> {
-    /// Alloc on stack and try to box val, return Err<T>
+    /// Try to alloc on stack, and return Err<T>
     /// when val is too large (about 4 words)
     ///
     /// # Examples
@@ -140,6 +141,27 @@ impl<T: ?Sized> ops::DerefMut for StackBox<T> {
 impl<T: ?Sized> ops::Drop for StackBox<T> {
     fn drop(&mut self) {
         unsafe { ptr::drop_in_place(&mut **self) }
+    }
+}
+
+impl<T: fmt::Display + ?Sized> fmt::Display for StackBox<T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        fmt::Display::fmt(&**self, f)
+    }
+}
+
+impl<T: fmt::Debug + ?Sized> fmt::Debug for StackBox<T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        fmt::Debug::fmt(&**self, f)
+    }
+}
+
+impl<T: ?Sized> fmt::Pointer for StackBox<T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        // It's not possible to extract the inner Uniq directly from the Box,
+        // instead we cast it to a *const which aliases the Unique
+        let ptr: *const T = &**self;
+        fmt::Pointer::fmt(&ptr, f)
     }
 }
 

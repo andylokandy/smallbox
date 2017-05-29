@@ -85,7 +85,6 @@ match big {
 
 # Roadmap
 - `no_std` support
-- impl `Debug`, `Display`
 - method that convert SmallBox<T> to Box<T>
 - conveniently convert bewteen `SmallBox<T>` and `StackBox<T>`
 - optional `SmallBox<T>` and heap dependency
