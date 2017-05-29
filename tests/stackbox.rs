@@ -1,26 +1,11 @@
 extern crate smallbox;
 
 use smallbox::StackBox;
-use smallbox::SmallBox;
 
 #[test]
 fn basic() {
     let stack = StackBox::<PartialEq<u32>>::new(1234u32).unwrap();
     assert!(*stack == 1234);
-
-    let small_stack = SmallBox::<PartialEq<u32>>::new(4321u32);
-    assert!(*small_stack == 4321);
-    match small_stack {
-        SmallBox::Stack(_) => (),
-        _ => unreachable!(),
-    }
-
-    let small_heap = SmallBox::<[usize]>::new([5; 1000]);
-    assert!(small_heap.iter().eq([5; 1000].iter()));
-    match small_heap {
-        SmallBox::Box(_) => (),
-        _ => unreachable!(),
-    }
 }
 
 #[test]
@@ -38,18 +23,6 @@ fn test_drop() {
 
     let flag = Cell::new(false);
     let val: StackBox<Debug> = StackBox::new(Struct(&flag)).unwrap();
-    assert!(flag.get() == false);
-    drop(val);
-    assert!(flag.get() == true);
-
-    let flag = Cell::new(false);
-    let val: SmallBox<Debug> = SmallBox::new(Struct(&flag));
-    assert!(flag.get() == false);
-    drop(val);
-    assert!(flag.get() == true);
-
-    let flag = Cell::new(false);
-    let val: SmallBox<Debug> = SmallBox::new(Struct(&flag));
     assert!(flag.get() == false);
     drop(val);
     assert!(flag.get() == true);
@@ -102,19 +75,11 @@ fn test_closure() {
 }
 
 #[test]
-fn test_heap_fallback() {
+fn test_oversize() {
     const MAX_SIZE: usize = 4;
 
     let fit = StackBox::<[usize]>::new([0; MAX_SIZE]);
     let oversize = StackBox::<[usize]>::new([0; MAX_SIZE + 1]);
     assert!(fit.is_ok());
     assert!(oversize.is_err());
-    assert_eq!(fit.unwrap().len(), MAX_SIZE);
-
-    let small = SmallBox::<[usize]>::new([8; MAX_SIZE]);
-    let medium = SmallBox::<[usize]>::new([7; MAX_SIZE + 1]);
-    let huge = SmallBox::<[usize]>::new([6; 10000]);
-    assert!(small.iter().eq([8; MAX_SIZE].iter()));
-    assert!(medium.iter().eq([7; MAX_SIZE + 1].iter()));
-    assert!(huge.iter().eq([6; 10000].iter()));
 }

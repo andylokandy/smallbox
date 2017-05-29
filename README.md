@@ -24,6 +24,40 @@ Next, add this to your crate root:
 extern crate smallbox;
 ```
 
+Currently smallbox by default links to the standard library, but if you would
+instead like to use this crate in a `#![no_std]` situation or crate, and want to 
+opt out heap dependency and `SmallBox<T>` type, you can request this via:
+
+```toml
+[dependencies]
+smallbox = { version = "0.2", default-features = false }
+```
+
+Enable `heap` feature for `#![no_std]` build to link `alloc` crate
+and bring `SmallBox<T>` back.
+
+```toml
+[dependencies.smallbox]
+version = "0.2"
+default-features = false
+features = ["heap"]
+```
+
+
+# Feature Flags
+
+The **arraydeque** crate has the following cargo feature flags:
+
+- `std`
+  - Optional, enabled by default
+  - Use libstd
+
+
+- `heap`
+  - Optional
+  - Use heap fallback and include `SmallBox<T>` type, and link to `alloc` crate if `std`
+    feature flag is opted out.
+
 
 # Overview
 This crate delivers two core type:
@@ -84,10 +118,8 @@ match big {
 ```
 
 # Roadmap
-- `no_std` support
 - method that convert SmallBox<T> to Box<T>
 - conveniently convert bewteen `SmallBox<T>` and `StackBox<T>`
-- optional `SmallBox<T>` and heap dependency
 - configurable `StackBox<T>` allocation size
 - dowancasting for `StackBox<Any>` and `SmallBox<Any>`
 

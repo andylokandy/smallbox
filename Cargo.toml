@@ -7,3 +7,8 @@ repository = "https://github.com/goandylok/smallbox"
 documentation = "https://docs.rs/smallbox/"
 keywords = ["box", "alloc", "dst", "stack", "no_std"]
 license = "MIT"
+
+[features]
+default = ["std"]
+std = ["heap"]
+heap = []

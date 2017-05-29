@@ -1,3 +1,6 @@
+#[cfg(not(feature="std"))]
+use alloc::boxed::Box;
+
 use std::ops;
 use std::marker;
 use std::fmt;

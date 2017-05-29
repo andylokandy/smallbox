@@ -17,6 +17,39 @@
 //! extern crate smallbox;
 //! ```
 //!
+//! Currently smallbox by default links to the standard library, but if you would
+//! instead like to use this crate in a `#![no_std]` situation or crate, and want to 
+//! opt out heap dependency and `SmallBox<T>` type, you can request this via:
+//!
+//! ```toml
+//! [dependencies]
+//! smallbox = { version = "0.2", default-features = false }
+//! ```
+//!
+//! Enable `heap` feature for `#![no_std]` build to link `alloc` crate
+//! and bring `SmallBox<T>` back.
+//!
+//! ```toml
+//! [dependencies.smallbox]
+//! version = "0.2"
+//! default-features = false
+//! features = ["heap"]
+//! ```
+//!
+//!
+//! # Feature Flags
+//! The **arraydeque** crate has the following cargo feature flags:
+//!
+//! - `std`
+//!   - Optional, enabled by default
+//!   - Use libstd
+//!
+//!
+//! - `heap`
+//!   - Optional
+//!   - Use heap fallback and include `SmallBox<T>` type, and link to `alloc` crate if `std`
+//!     feature flag is opted out.
+//!
 //!
 //! # Overview
 //! This crate delivers two core type:
@@ -57,6 +90,8 @@
 //! In addition, the inner `StackBox<T>` or `Box<T>` can be moved out by explicitely pattern matching on `SmallBox<T>`.
 //!
 //! ```rust
+//! # #[cfg(feature = "heap")]
+//! # {
 //! use smallbox::SmallBox;
 //!
 //! let tiny: SmallBox<[u64]> = SmallBox::new([0; 2]);
@@ -74,13 +109,24 @@
 //!     SmallBox::Box(val) => assert_eq!(*val, [1; 8]),
 //!     _ => unreachable!()
 //! }
+//! # }
 //! ```
 
 #![feature(unsize)]
 #![feature(box_syntax)]
 
+#![cfg_attr(not(feature="std"), no_std)]
+#![cfg_attr(all(feature="heap", not(feature="std")), feature(alloc))]
+
+#[cfg(not(feature = "std"))]
+extern crate core as std;
+#[cfg(all(feature="heap", not(feature="std")))]
+extern crate alloc;
+
 mod stackbox;
+#[cfg(feature = "heap")]
 mod smallbox;
 
 pub use stackbox::StackBox;
+#[cfg(feature = "heap")]
 pub use smallbox::SmallBox;
