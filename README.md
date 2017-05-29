@@ -37,7 +37,16 @@ This crate delivers two core type:
 
 
 # Example
-One of the most obvious uses is to allow returning capturing closures without having to box them.
+The simplest usage can be trait object dynamic-dispatch
+```rust
+use smallbox::StackBox;
+ 
+let val: StackBox<PartialEq<usize>> = StackBox::new(5usize).unwrap();
+ 
+assert!(*val == 5)
+```
+
+One of the most obvious use case is to allow returning capturing closures without having to box them.
 
 ```rust
 use smallbox::StackBox;
@@ -50,7 +59,7 @@ let closure = make_closure("world!".to_owned());
 assert_eq!(closure(), "Hello, world!");
 ```
 
-The other uses is to eliminate heap alloction for small things, only when 
+The other use case is to eliminate heap alloction for small things, except that
 the object is large enough to allocte. 
 In addition, the inner `StackBox<T>` or `Box<T>` can be moved out by explicitely pattern matching on `SmallBox<T>`.
 
