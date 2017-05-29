@@ -3,6 +3,9 @@ use std::mem;
 use std::ptr;
 use std::slice;
 use std::marker;
+use std::hash;
+use std::hash::Hash;
+use std::cmp::Ordering;
 
 const DEFAULT_SIZE: usize = 4 + 1;
 
@@ -14,9 +17,9 @@ type Space = [usize; DEFAULT_SIZE];
 ///
 /// ```
 /// use smallbox::StackBox;
-/// 
+///
 /// let val: StackBox<PartialEq<usize>> = StackBox::new(5usize).unwrap();
-/// 
+///
 /// assert!(*val == 5)
 /// ```
 pub struct StackBox<T: ?Sized> {
@@ -32,7 +35,7 @@ unsafe fn ptr_as_slice<'p, T: ?Sized>(ptr: &'p mut *const T) -> &'p mut [usize] 
 }
 
 impl<T: ?Sized> StackBox<T> {
-    /// Alloc on stack and try to box val, return Err<T> 
+    /// Alloc on stack and try to box val, return Err<T>
     /// when val is too large (about 4 words)
     ///
     /// # Examples
@@ -40,7 +43,7 @@ impl<T: ?Sized> StackBox<T> {
     /// ```
     /// use std::any::Any;
     /// use smallbox::StackBox;
-    /// 
+    ///
     /// assert!(StackBox::<Any>::new(5usize).is_ok());
     /// assert!(StackBox::<Any>::new([5usize; 8]).is_err());
     /// ```
@@ -137,5 +140,54 @@ impl<T: ?Sized> ops::DerefMut for StackBox<T> {
 impl<T: ?Sized> ops::Drop for StackBox<T> {
     fn drop(&mut self) {
         unsafe { ptr::drop_in_place(&mut **self) }
+    }
+}
+
+impl<T: ?Sized + PartialEq> PartialEq for StackBox<T> {
+    #[inline]
+    fn eq(&self, other: &StackBox<T>) -> bool {
+        PartialEq::eq(&**self, &**other)
+    }
+    #[inline]
+    fn ne(&self, other: &StackBox<T>) -> bool {
+        PartialEq::ne(&**self, &**other)
+    }
+}
+
+impl<T: ?Sized + PartialOrd> PartialOrd for StackBox<T> {
+    #[inline]
+    fn partial_cmp(&self, other: &StackBox<T>) -> Option<Ordering> {
+        PartialOrd::partial_cmp(&**self, &**other)
+    }
+    #[inline]
+    fn lt(&self, other: &StackBox<T>) -> bool {
+        PartialOrd::lt(&**self, &**other)
+    }
+    #[inline]
+    fn le(&self, other: &StackBox<T>) -> bool {
+        PartialOrd::le(&**self, &**other)
+    }
+    #[inline]
+    fn ge(&self, other: &StackBox<T>) -> bool {
+        PartialOrd::ge(&**self, &**other)
+    }
+    #[inline]
+    fn gt(&self, other: &StackBox<T>) -> bool {
+        PartialOrd::gt(&**self, &**other)
+    }
+}
+
+impl<T: ?Sized + Ord> Ord for StackBox<T> {
+    #[inline]
+    fn cmp(&self, other: &StackBox<T>) -> Ordering {
+        Ord::cmp(&**self, &**other)
+    }
+}
+
+impl<T: ?Sized + Eq> Eq for StackBox<T> {}
+
+impl<T: ?Sized + Hash> Hash for StackBox<T> {
+    fn hash<H: hash::Hasher>(&self, state: &mut H) {
+        (**self).hash(state);
     }
 }
