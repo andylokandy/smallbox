@@ -72,7 +72,23 @@
 //!
 //! assert!(*val == 5)
 //! ```
-//! One of the most obvious use case is to allow returning capturing closures without having to box them.
+//!
+//! `Any` downcasting is also quite a good use.
+//!
+//! ```rust
+//! use std::any::Any;
+//! use smallbox::StackBox;
+//!
+//! let num: StackBox<Any> = StackBox::new(1234u32).unwrap();
+//!
+//! if let Some(num) = num.downcast_ref::<u32>() {
+//!     assert_eq!(*num, 1234);
+//! } else {
+//!     unreachable!();
+//! }
+//! ```
+//!
+//! Another use case is to allow returning capturing closures without having to box them.
 //!
 //! ```rust
 //! use smallbox::StackBox;
@@ -85,9 +101,9 @@
 //! assert_eq!(closure(), "Hello, world!");
 //! ```
 //!
-//! The other use case is to eliminate heap alloction for small things, except that
+//! `SmallBox<T>` is to eliminate heap alloction for small things, except that
 //! the object is large enough to allocte.
-//! In addition, the inner `StackBox<T>` or `Box<T>` can be moved out by explicitely pattern matching on `SmallBox<T>`.
+//! In addition, the inner `StackBox<T>` or `Box<T>` can be moved out by explicit pattern match.
 //!
 //! ```rust
 //! # #[cfg(feature = "heap")]
@@ -110,6 +126,8 @@
 //!     _ => unreachable!()
 //! }
 //! # }
+
+
 //! ```
 
 #![feature(unsize)]

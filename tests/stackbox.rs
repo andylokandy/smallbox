@@ -83,3 +83,23 @@ fn test_oversize() {
     assert!(fit.is_ok());
     assert!(oversize.is_err());
 }
+
+#[test]
+fn test_downcast() {
+    use std::any::Any;
+    
+    let num: StackBox<Any> = StackBox::new(1234u32).unwrap();
+    let string: StackBox<Any> = StackBox::new("hello world".to_owned()).unwrap();
+
+    if let Some(num) = num.downcast_ref::<u32>() {
+        assert_eq!(*num, 1234);
+    } else {
+        unreachable!();
+    }
+
+    if let Some(string) = string.downcast_ref::<String>() {
+        assert_eq!(string, "hello world");
+    } else {
+        unreachable!();
+    }
+}

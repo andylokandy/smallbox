@@ -58,3 +58,23 @@ fn test_heap_fallback() {
     assert!(medium.iter().eq([7; MAX_SIZE + 1].iter()));
     assert!(huge.iter().eq([6; 10000].iter()));
 }
+
+#[test]
+fn test_downcast() {
+    use std::any::Any;
+    
+    let num: SmallBox<Any> = SmallBox::new(1234u32);
+    let string: SmallBox<Any> = SmallBox::new("hello world".to_owned());
+
+    if let Some(num) = num.downcast_ref::<u32>() {
+        assert_eq!(*num, 1234);
+    } else {
+        unreachable!();
+    }
+
+    if let Some(string) = string.downcast_ref::<String>() {
+        assert_eq!(string, "hello world");
+    } else {
+        unreachable!();
+    }
+}

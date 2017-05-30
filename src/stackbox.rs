@@ -104,7 +104,7 @@ impl<T: ?Sized> StackBox<T> {
     }
 
     // make a fat pointer to self.space with metadata
-    pub(crate) unsafe fn as_fat_ptr(&self) -> *const T {
+    pub unsafe fn as_fat_ptr(&self) -> *const T {
         let mut ptr: *const T = mem::zeroed();
 
         {

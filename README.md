@@ -80,7 +80,21 @@ let val: StackBox<PartialEq<usize>> = StackBox::new(5usize).unwrap();
 assert!(*val == 5)
 ```
 
-One of the most obvious use case is to allow returning capturing closures without having to box them.
+`Any` downcasting is also quite a good use.
+
+```rust
+use std::any::Any;
+
+let num: StackBox<Any> = StackBox::new(1234u32).unwrap();
+
+if let Some(num) = num.downcast_ref::<u32>() {
+    assert_eq!(*num, 1234);
+} else {
+    unreachable!();
+}
+```
+
+Another use case is to allow returning capturing closures without having to box them.
 
 ```rust
 use smallbox::StackBox;
@@ -93,9 +107,9 @@ let closure = make_closure("world!".to_owned());
 assert_eq!(closure(), "Hello, world!");
 ```
 
-The other use case is to eliminate heap alloction for small things, except that
+`SmallBox<T>` is to eliminate heap alloction for small things, except that
 the object is large enough to allocte. 
-In addition, the inner `StackBox<T>` or `Box<T>` can be moved out by explicitely pattern matching on `SmallBox<T>`.
+In addition, the inner `StackBox<T>` or `Box<T>` can be moved out by explicit pattern match.
 
 ```rust
 use smallbox::SmallBox;
@@ -121,7 +135,6 @@ match big {
 - method that convert SmallBox<T> to Box<T>
 - conveniently convert bewteen `SmallBox<T>` and `StackBox<T>`
 - configurable `StackBox<T>` allocation size
-- dowancasting for `StackBox<Any>` and `SmallBox<Any>`
 
 
 ## Contribution
