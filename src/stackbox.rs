@@ -1,16 +1,13 @@
 use std::ops;
 use std::mem;
 use std::ptr;
-use std::slice;
+use std::ptr::Unique;
 use std::marker;
 use std::fmt;
 use std::hash;
 use std::hash::Hash;
 use std::cmp::Ordering;
-
-const DEFAULT_SIZE: usize = 4 + 1;
-
-type Space = [usize; DEFAULT_SIZE];
+use super::space::U4;
 
 /// On-stack allocation for dynamically-sized type.
 ///
@@ -23,19 +20,12 @@ type Space = [usize; DEFAULT_SIZE];
 ///
 /// assert!(*val == 5)
 /// ```
-pub struct StackBox<T: ?Sized> {
-    // force alignment to be usize
-    _align: [usize; 0],
-    _pd: marker::PhantomData<T>,
+pub struct StackBox<T: ?Sized, Space = U4> {
+    ptr: Unique<T>,
     space: Space,
 }
 
-unsafe fn ptr_as_slice<'p, T: ?Sized>(ptr: &'p mut *const T) -> &'p mut [usize] {
-    let words = mem::size_of::<&T>() / mem::size_of::<usize>();
-    slice::from_raw_parts_mut(ptr as *mut _ as *mut usize, words)
-}
-
-impl<T: ?Sized> StackBox<T> {
+impl<T: ?Sized, Space> StackBox<T, Space> {
     /// Try to alloc on stack, and return Err<T>
     /// when val is too large (about 4 words)
     ///
@@ -48,115 +38,82 @@ impl<T: ?Sized> StackBox<T> {
     /// assert!(StackBox::<Any>::new(5usize).is_ok());
     /// assert!(StackBox::<Any>::new([5usize; 8]).is_err());
     /// ```
-    pub fn new<U>(val: U) -> Result<StackBox<T>, U>
+    pub fn new<U>(val: U) -> Result<StackBox<T, Space>, U>
         where U: marker::Unsize<T>
     {
-        if mem::size_of::<&T>() + mem::size_of::<U>() - mem::size_of::<usize>() >
-           mem::size_of::<Space>() {
+        if mem::size_of::<U>() > mem::size_of::<Space>() {
             Err(val)
         } else {
             unsafe { Ok(Self::box_up(val)) }
         }
     }
 
-    // store value and metadata(for example: array length)
-    unsafe fn box_up<U>(val: U) -> StackBox<T>
-        where U: marker::Unsize<T>
-    {
-        // raw fat pointer
-        // memory layout: (ptr: usize, info: [usize])
-        let mut ptr: *const T = &val;
-
-        let ptr_words = ptr_as_slice(&mut ptr);
-
-        debug_assert!(ptr_words[0] == &val as *const _ as usize,
-                      "Pointer layout is not (data_ptr, info ...)");
-
-        debug_assert!(mem::align_of::<Self>() == mem::size_of::<usize>(),
-                      "Self alignment should equal usize's");
-
-        debug_assert!(mem::align_of::<U>() <= mem::align_of::<Self>(),
-                      "Self alignment should ge than T's: {} (current is {})",
-                      mem::align_of::<U>(),
-                      mem::align_of::<Self>());
-
-        // Space memeroy layout: (U, padding, info)
-        let mut space = mem::uninitialized::<Space>();
-
-        // move data into space
-        ptr::copy_nonoverlapping(&val, (&mut space).as_ptr() as *mut U, 1);
-
-        // place pointer information at the end of the region
-        {
-            let info = &ptr_words[1..];
-            let space_info_offset = space.len() - info.len();
-            let space_info = &mut space[space_info_offset..];
-            space_info.clone_from_slice(info);
-        }
-
-        mem::forget(val);
-
-        StackBox {
-            _align: [],
-            _pd: marker::PhantomData,
-            space: space,
+    pub fn resize<ToSpace>(self) -> Result<StackBox<T, ToSpace>, Self> {
+        if mem::size_of::<Space>() > mem::size_of::<ToSpace>() {
+            Err(self)
+        } else {
+            unsafe {
+                let ptr = self.ptr;
+                let mut space = mem::uninitialized::<ToSpace>();
+                ptr::copy_nonoverlapping(&self.space, &mut space as *mut _ as *mut Space, 1);
+                mem::forget(self);
+                Ok(StackBox { ptr, space })
+            }
         }
     }
 
-    // make a fat pointer to self.space with metadata
-    pub unsafe fn as_fat_ptr(&self) -> *const T {
-        let mut ptr: *const T = mem::zeroed();
+    unsafe fn box_up<U>(mut val: U) -> StackBox<T, Space>
+        where U: marker::Unsize<T>
+    {
+        let ptr: Unique<T> = Unique::new(&mut val);
 
-        {
-            let ptr_words = ptr_as_slice(&mut ptr);
+        let mut space = mem::uninitialized::<Space>();
+        ptr::copy_nonoverlapping(&val, &mut space as *mut _ as *mut U, 1);
+        mem::forget(val);
 
-            // set pointer
-            ptr_words[0] = self.space.as_ptr() as usize;
+        StackBox { ptr, space }
+    }
 
-            // set info
-            let info = &mut ptr_words[1..];
-            let space_info_offset = self.space.len() - info.len();
-            let space_info = &self.space[space_info_offset..];
-            info.clone_from_slice(space_info);
-        }
-
-        ptr as _
+    unsafe fn as_ptr(&self) -> *const T {
+        let mut ptr: *const T = self.ptr.as_ptr();
+        *(&mut ptr as *mut _ as *mut usize) = &self.space as *const _ as usize;
+        ptr
     }
 }
 
-impl<T: ?Sized> ops::Deref for StackBox<T> {
+impl<T: ?Sized, Space> ops::Deref for StackBox<T, Space> {
     type Target = T;
 
     fn deref(&self) -> &T {
-        unsafe { &*self.as_fat_ptr() }
+        unsafe { &*self.as_ptr() }
     }
 }
 
-impl<T: ?Sized> ops::DerefMut for StackBox<T> {
+impl<T: ?Sized, Space> ops::DerefMut for StackBox<T, Space> {
     fn deref_mut(&mut self) -> &mut T {
-        unsafe { &mut *(self.as_fat_ptr() as *mut T) }
+        unsafe { &mut *(self.as_ptr() as *mut T) }
     }
 }
 
-impl<T: ?Sized> ops::Drop for StackBox<T> {
+impl<T: ?Sized, Space> ops::Drop for StackBox<T, Space> {
     fn drop(&mut self) {
         unsafe { ptr::drop_in_place(&mut **self) }
     }
 }
 
-impl<T: fmt::Display + ?Sized> fmt::Display for StackBox<T> {
+impl<T: fmt::Display + ?Sized, Space> fmt::Display for StackBox<T, Space> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         fmt::Display::fmt(&**self, f)
     }
 }
 
-impl<T: fmt::Debug + ?Sized> fmt::Debug for StackBox<T> {
+impl<T: fmt::Debug + ?Sized, Space> fmt::Debug for StackBox<T, Space> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         fmt::Debug::fmt(&**self, f)
     }
 }
 
-impl<T: ?Sized> fmt::Pointer for StackBox<T> {
+impl<T: ?Sized, Space> fmt::Pointer for StackBox<T, Space> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         // It's not possible to extract the inner Uniq directly from the Box,
         // instead we cast it to a *const which aliases the Unique
@@ -165,50 +122,50 @@ impl<T: ?Sized> fmt::Pointer for StackBox<T> {
     }
 }
 
-impl<T: ?Sized + PartialEq> PartialEq for StackBox<T> {
+impl<T: ?Sized + PartialEq, Space> PartialEq for StackBox<T, Space> {
     #[inline]
-    fn eq(&self, other: &StackBox<T>) -> bool {
+    fn eq(&self, other: &StackBox<T, Space>) -> bool {
         PartialEq::eq(&**self, &**other)
     }
     #[inline]
-    fn ne(&self, other: &StackBox<T>) -> bool {
+    fn ne(&self, other: &StackBox<T, Space>) -> bool {
         PartialEq::ne(&**self, &**other)
     }
 }
 
-impl<T: ?Sized + PartialOrd> PartialOrd for StackBox<T> {
+impl<T: ?Sized + PartialOrd, Space> PartialOrd for StackBox<T, Space> {
     #[inline]
-    fn partial_cmp(&self, other: &StackBox<T>) -> Option<Ordering> {
+    fn partial_cmp(&self, other: &StackBox<T, Space>) -> Option<Ordering> {
         PartialOrd::partial_cmp(&**self, &**other)
     }
     #[inline]
-    fn lt(&self, other: &StackBox<T>) -> bool {
+    fn lt(&self, other: &StackBox<T, Space>) -> bool {
         PartialOrd::lt(&**self, &**other)
     }
     #[inline]
-    fn le(&self, other: &StackBox<T>) -> bool {
+    fn le(&self, other: &StackBox<T, Space>) -> bool {
         PartialOrd::le(&**self, &**other)
     }
     #[inline]
-    fn ge(&self, other: &StackBox<T>) -> bool {
+    fn ge(&self, other: &StackBox<T, Space>) -> bool {
         PartialOrd::ge(&**self, &**other)
     }
     #[inline]
-    fn gt(&self, other: &StackBox<T>) -> bool {
+    fn gt(&self, other: &StackBox<T, Space>) -> bool {
         PartialOrd::gt(&**self, &**other)
     }
 }
 
-impl<T: ?Sized + Ord> Ord for StackBox<T> {
+impl<T: ?Sized + Ord, Space> Ord for StackBox<T, Space> {
     #[inline]
-    fn cmp(&self, other: &StackBox<T>) -> Ordering {
+    fn cmp(&self, other: &StackBox<T, Space>) -> Ordering {
         Ord::cmp(&**self, &**other)
     }
 }
 
-impl<T: ?Sized + Eq> Eq for StackBox<T> {}
+impl<T: ?Sized + Eq, Space> Eq for StackBox<T, Space> {}
 
-impl<T: ?Sized + Hash> Hash for StackBox<T> {
+impl<T: ?Sized + Hash, Space> Hash for StackBox<T, Space> {
     fn hash<H: hash::Hasher>(&self, state: &mut H) {
         (**self).hash(state);
     }

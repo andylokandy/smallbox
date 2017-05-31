@@ -132,6 +132,8 @@
 
 #![feature(unsize)]
 #![feature(box_syntax)]
+#![feature(unique)]
+#![feature(used)]
 
 #![cfg_attr(not(feature="std"), no_std)]
 #![cfg_attr(all(feature="heap", not(feature="std")), feature(alloc))]
@@ -141,6 +143,7 @@ extern crate core as std;
 #[cfg(all(feature="heap", not(feature="std")))]
 extern crate alloc;
 
+pub mod space;
 mod stackbox;
 #[cfg(feature = "heap")]
 mod smallbox;

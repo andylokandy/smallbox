@@ -87,7 +87,7 @@ fn test_oversize() {
 #[test]
 fn test_downcast() {
     use std::any::Any;
-    
+
     let num: StackBox<Any> = StackBox::new(1234u32).unwrap();
     let string: StackBox<Any> = StackBox::new("hello world".to_owned()).unwrap();
 
@@ -102,4 +102,35 @@ fn test_downcast() {
     } else {
         unreachable!();
     }
+}
+
+#[test]
+fn test_space_size() {
+    use smallbox::space::*;
+
+    assert!(StackBox::<[usize], U4>::new([0usize; 4]).is_ok());
+    assert!(StackBox::<[usize], U4>::new([0usize; 4 + 1]).is_err());
+    assert!(StackBox::<[usize], U8>::new([0usize; 8]).is_ok());
+    assert!(StackBox::<[usize], U8>::new([0usize; 8 + 1]).is_err());
+    assert!(StackBox::<[usize], [usize; 32]>::new([0usize; 32]).is_ok());
+    assert!(StackBox::<[usize], [usize; 32]>::new([0usize; 32 + 1]).is_err());
+    assert!(StackBox::<[u32], [u8; 32]>::new([0u32; 8]).is_ok());
+    assert!(StackBox::<[u32], [u8; 32]>::new([0u32; 8 + 1]).is_err());
+}
+
+#[test]
+fn test_resize() {
+    use std::any::Any;
+    use smallbox::space::*;
+
+    let s = StackBox::<Any, U4>::new([0usize; 4]).unwrap();
+    let m = s.resize::<U8>().ok().unwrap();
+
+    if let Some(array) = m.downcast_ref::<[usize; 4]>() {
+        assert_eq!(*array, [0usize; 4]);
+    } else {
+        unreachable!();
+    }
+
+    m.resize::<U4>().err().unwrap();
 }
