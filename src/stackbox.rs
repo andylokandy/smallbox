@@ -7,6 +7,7 @@ use std::fmt;
 use std::hash;
 use std::hash::Hash;
 use std::cmp::Ordering;
+
 use super::space::U4;
 
 /// On-stack allocation for dynamically-sized type.
