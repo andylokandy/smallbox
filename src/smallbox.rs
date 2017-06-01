@@ -9,7 +9,7 @@ use std::hash::Hash;
 use std::cmp::Ordering;
 
 use super::StackBox;
-use super::space::U4;
+use super::space::S4;
 
 /// Stack allocation with heap fallback
 ///
@@ -22,13 +22,36 @@ use super::space::U4;
 ///
 /// assert!(*val == 5)
 /// ```
-pub enum SmallBox<T: ?Sized, Space = U4> {
+pub enum SmallBox<T: ?Sized, Space = S4> {
     Stack(StackBox<T, Space>),
     Box(Box<T>),
 }
 
 impl<T: ?Sized, Space> SmallBox<T, Space> {
     /// Box val on stack or heap depending on its size
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use smallbox::SmallBox;
+    /// use smallbox::space::*;
+    ///
+    /// let tiny: SmallBox<[u64], S4> = SmallBox::new([0; 2]);
+    /// let big: SmallBox<[u64], S4> = SmallBox::new([1; 8]);
+    ///
+    /// assert_eq!(tiny.len(), 2);
+    /// assert_eq!(big[7], 1);
+    ///
+    /// match tiny {
+    ///     SmallBox::Stack(val) => assert_eq!(*val, [0; 2]),
+    ///     _ => unreachable!()
+    /// }
+    ///
+    /// match big {
+    ///     SmallBox::Box(val) => assert_eq!(*val, [1; 8]),
+    ///     _ => unreachable!()
+    /// }
+    /// ```
     pub fn new<U>(val: U) -> SmallBox<T, Space>
         where U: marker::Unsize<T>
     {
@@ -38,6 +61,23 @@ impl<T: ?Sized, Space> SmallBox<T, Space> {
         }
     }
 
+    /// Try to transforms to the `SmallBox<T>` of bigger capacity,
+    /// and return `Err` when target capacity is smaller.
+    /// Note that this method will always success
+    /// when the allocation is on heap.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use smallbox::SmallBox;
+    /// use smallbox::space::*;
+    ///
+    /// let s = SmallBox::<[usize], S8>::new([0usize; 4]);
+    /// assert!(s.resize::<S16>().is_ok());
+    ///
+    /// let s = SmallBox::<[usize], S8>::new([0usize; 4]);
+    /// assert!(s.resize::<S4>().is_err());
+    /// ```
     pub fn resize<ToSpace>(self) -> Result<SmallBox<T, ToSpace>, Self> {
         match self {
             SmallBox::Stack(x) => x.resize().map(SmallBox::Stack).map_err(SmallBox::Stack),

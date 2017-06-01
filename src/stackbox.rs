@@ -8,7 +8,7 @@ use std::hash;
 use std::hash::Hash;
 use std::cmp::Ordering;
 
-use super::space::U4;
+use super::space::S4;
 
 /// On-stack allocation for dynamically-sized type.
 ///
@@ -21,23 +21,22 @@ use super::space::U4;
 ///
 /// assert!(*val == 5)
 /// ```
-pub struct StackBox<T: ?Sized, Space = U4> {
+pub struct StackBox<T: ?Sized, Space = S4> {
     ptr: Unique<T>,
     space: Space,
 }
 
 impl<T: ?Sized, Space> StackBox<T, Space> {
     /// Try to alloc on stack, and return Err<T>
-    /// when val is too large (about 4 words)
+    /// when val is larger than capacity
     ///
     /// # Examples
     ///
     /// ```
-    /// use std::any::Any;
     /// use smallbox::StackBox;
     ///
-    /// assert!(StackBox::<Any>::new(5usize).is_ok());
-    /// assert!(StackBox::<Any>::new([5usize; 8]).is_err());
+    /// assert!(StackBox::<[usize]>::new([0usize; 1]).is_ok());
+    /// assert!(StackBox::<[usize]>::new([0usize; 8]).is_err());
     /// ```
     pub fn new<U>(mut val: U) -> Result<StackBox<T, Space>, U>
         where U: marker::Unsize<T>
@@ -55,6 +54,21 @@ impl<T: ?Sized, Space> StackBox<T, Space> {
         }
     }
 
+    /// Try to transforms to a `StackBox<T>` with bigger capacity,
+    /// and return `Err` when target capacity is smaller.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use smallbox::StackBox;
+    /// use smallbox::space::*;
+    ///
+    /// let s = StackBox::<[usize], S8>::new([0usize; 4]).unwrap();
+    /// assert!(s.resize::<S16>().is_ok());
+    ///
+    /// let s = StackBox::<[usize], S8>::new([0usize; 4]).unwrap();
+    /// assert!(s.resize::<S4>().is_err());
+    /// ```
     pub fn resize<ToSpace>(self) -> Result<StackBox<T, ToSpace>, Self> {
         if mem::size_of::<Space>() > mem::size_of::<ToSpace>() {
             Err(self)

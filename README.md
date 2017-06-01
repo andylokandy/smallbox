@@ -1,8 +1,8 @@
 # `smallbox`
 
 [![Build Status](https://travis-ci.org/goandylok/smallbox.svg?branch=master)](https://travis-ci.org/goandylok/smallbox)
-[![crates.io](https://img.shields.io/crates/v/arraydeque.svg)](https://crates.io/crates/smallbox)
-[![docs.rs](https://docs.rs/arraydeque/badge.svg)](https://docs.rs/smallbox)
+[![crates.io](https://img.shields.io/crates/v/stackbox.svg)](https://crates.io/crates/smallbox)
+[![docs.rs](https://docs.rs/stackbox/badge.svg)](https://docs.rs/smallbox)
 
 Box dynamically-sized types on stack. Requires nightly rust.
 
@@ -46,7 +46,7 @@ features = ["heap"]
 
 # Feature Flags
 
-The **arraydeque** crate has the following cargo feature flags:
+The **stackbox** crate has the following cargo feature flags:
 
 - `std`
   - Optional, enabled by default
@@ -65,7 +65,8 @@ This crate delivers two core type:
  `StackBox<T>`: Represents a fixed-capacity allocation, and on stack stores dynamically-sized type. 
  The `new` method on this type allows creating a instance from a concrete type, 
  returning `Err(value)` if the instance is too large for the allocated region. 
- So far, the fixed-capcity is about four words (4 * `sizeof(usize)`)
+ Default capacity is four words (4 * `sizeof(usize)`), more details on custom capacity are at following sections.
+
  
  `SmallBox<T>`: Takes `StackBox<T>` as an varience, and fallback to `Box<T>` when type `T` is too large for `StackBox<T>`.
 
@@ -131,13 +132,30 @@ match big {
 }
 ```
 
+
+# Capacity
+The custom capacity of `SmallBox<T, Space>` and `StackBox<T，Space>` is expressed by the size of type **`Space`**, 
+which default to `space::S4` represented as 4 words space (4 * usize). 
+There are some default option in `smallbox::space` from `S4` to `S64`. 
+Anyway, you can defind your space type, or just use some array.
+
+The `resize()` method on `StackBox<T, Space>` and `SmallBox<T, Space>` is used to transforms itself to the one of bigger capacity.
+
+```rust
+use smallbox::SmallBox;
+use smallbox::space::*;
+
+let s = SmallBox::<[usize], S8>::new([0usize; 8]);
+assert!(s.resize::<S16>().is_ok());
+```
+
+
 # Roadmap
 - method that convert SmallBox<T> to Box<T>
 - conveniently convert bewteen `SmallBox<T>` and `StackBox<T>`
-- configurable `StackBox<T>` allocation size
 
 
-## Contribution
+# Contribution
 
 All kinds of contribution are welcome.
 
@@ -145,7 +163,7 @@ All kinds of contribution are welcome.
 - **Pull requests**. Better implementation, more tests, more documents and typo fixes are all welcome.
 
 
-## License
+# License
 
 Licensed under either of
 
