@@ -138,10 +138,10 @@
 //! The `resize()` method on `StackBox<T, Space>` and `SmallBox<T, Space>` is used to transforms itself to the one of bigger capacity.
 //!
 //! ```
-//! use smallbox::SmallBox;
+//! use smallbox::StackBox;
 //! use smallbox::space::*;
 //!
-//! let s = SmallBox::<[usize], S8>::new([0usize; 8]);
+//! let s = StackBox::<[usize], S8>::new([0usize; 8]).unwrap();
 //! assert!(s.resize::<S16>().is_ok());
 //! ```
 
