@@ -1,6 +1,6 @@
 [package]
 name = "smallbox"
-version = "0.2.2"
+version = "0.3.1"
 authors = ["goandylok"]
 description = "Box dynamically-sized types on stack"
 repository = "https://github.com/goandylok/smallbox"
