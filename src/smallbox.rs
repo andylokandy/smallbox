@@ -37,6 +37,13 @@ impl<T: ?Sized, Space> SmallBox<T, Space> {
             Err(x) => SmallBox::Box(box x),
         }
     }
+
+    pub fn resize<ToSpace>(self) -> Result<SmallBox<T, ToSpace>, Self> {
+        match self {
+            SmallBox::Stack(x) => x.resize().map(SmallBox::Stack).map_err(SmallBox::Stack),
+            SmallBox::Box(x) => Ok(SmallBox::Box(x)),
+        }
+    }
 }
 
 impl<T: ?Sized, Space> ops::Deref for SmallBox<T, Space> {

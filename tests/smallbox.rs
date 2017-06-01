@@ -78,3 +78,31 @@ fn test_downcast() {
         unreachable!();
     }
 }
+
+#[test]
+fn test_resize() {
+    use std::any::Any;
+    use smallbox::space::*;
+
+    let s = SmallBox::<Any, U4>::new([0usize; 4]);
+    let m = s.resize::<U8>().ok().unwrap();
+
+    if let Some(array) = m.downcast_ref::<[usize; 4]>() {
+        assert_eq!(*array, [0usize; 4]);
+    } else {
+        unreachable!();
+    }
+
+    m.resize::<U4>().err().unwrap();
+
+    let s = SmallBox::<Any, U4>::new([0usize; 8]);
+    let m = s.resize::<U8>().ok().unwrap();
+
+    if let Some(array) = m.downcast_ref::<[usize; 8]>() {
+        assert_eq!(*array, [0usize; 8]);
+    } else {
+        unreachable!();
+    }
+
+    m.resize::<U4>().unwrap();
+}
