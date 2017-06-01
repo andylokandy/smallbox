@@ -1,8 +1,8 @@
 # `smallbox`
 
 [![Build Status](https://travis-ci.org/goandylok/smallbox.svg?branch=master)](https://travis-ci.org/goandylok/smallbox)
-[![crates.io](https://img.shields.io/crates/v/stackbox.svg)](https://crates.io/crates/smallbox)
-[![docs.rs](https://docs.rs/stackbox/badge.svg)](https://docs.rs/smallbox)
+[![crates.io](https://img.shields.io/crates/v/smallbox.svg)](https://crates.io/crates/smallbox)
+[![docs.rs](https://docs.rs/smallbox/badge.svg)](https://docs.rs/smallbox)
 
 Box dynamically-sized types on stack. Requires nightly rust.
 
