@@ -39,13 +39,19 @@ impl<T: ?Sized, Space> StackBox<T, Space> {
     /// assert!(StackBox::<Any>::new(5usize).is_ok());
     /// assert!(StackBox::<Any>::new([5usize; 8]).is_err());
     /// ```
-    pub fn new<U>(val: U) -> Result<StackBox<T, Space>, U>
+    pub fn new<U>(mut val: U) -> Result<StackBox<T, Space>, U>
         where U: marker::Unsize<T>
     {
         if mem::size_of::<U>() > mem::size_of::<Space>() {
             Err(val)
         } else {
-            unsafe { Ok(Self::box_up(val)) }
+            unsafe {
+                let ptr: Unique<T> = Unique::new(&mut val);
+                let mut space = mem::uninitialized::<Space>();
+                ptr::copy_nonoverlapping(&val, &mut space as *mut _ as *mut U, 1);
+                mem::forget(val);
+                Ok(StackBox { ptr, space })
+            }
         }
     }
 
@@ -61,18 +67,6 @@ impl<T: ?Sized, Space> StackBox<T, Space> {
                 Ok(StackBox { ptr, space })
             }
         }
-    }
-
-    unsafe fn box_up<U>(mut val: U) -> StackBox<T, Space>
-        where U: marker::Unsize<T>
-    {
-        let ptr: Unique<T> = Unique::new(&mut val);
-
-        let mut space = mem::uninitialized::<Space>();
-        ptr::copy_nonoverlapping(&val, &mut space as *mut _ as *mut U, 1);
-        mem::forget(val);
-
-        StackBox { ptr, space }
     }
 
     unsafe fn as_ptr(&self) -> *const T {
