@@ -65,7 +65,7 @@ This crate delivers two core type:
  `StackBox<T>`: Represents a fixed-capacity allocation, and on stack stores dynamically-sized type. 
  The `new` method on this type allows creating a instance from a concrete type, 
  returning `Err(value)` if the instance is too large for the allocated region. 
- Default capacity is four words (4 * `sizeof(usize)`), more details on custom capacity are at following sections.
+ Default capacity is four words (4 * `sizeof(usize)`), more details on custom capacity are at the following sections.
 
  
  `SmallBox<T>`: Takes `StackBox<T>` as an varience, and fallback to `Box<T>` when type `T` is too large for `StackBox<T>`.
@@ -136,7 +136,7 @@ match big {
 # Capacity
 The custom capacity of `SmallBox<T, Space>` and `StackBox<T，Space>` is expressed by the size of type **`Space`**, 
 which default to `space::S4` represented as 4 words space (4 * usize). 
-There are some default option in `smallbox::space` from `S4` to `S64`. 
+There are some default options in `smallbox::space` from `S4` to `S64`. 
 Anyway, you can defind your space type, or just use some array.
 
 The `resize()` method on `StackBox<T, Space>` and `SmallBox<T, Space>` is used to transforms itself to the one of bigger capacity.
