@@ -62,7 +62,7 @@ fn test_heap_fallback() {
 #[test]
 fn test_downcast() {
     use std::any::Any;
-    
+
     let num: SmallBox<Any> = SmallBox::new(1234u32);
     let string: SmallBox<Any> = SmallBox::new("hello world".to_owned());
 
@@ -105,4 +105,17 @@ fn test_resize() {
     }
 
     m.resize::<U4>().unwrap();
+}
+
+#[test]
+fn test_zst() {
+    use std::any::Any;
+
+    let s = SmallBox::<Any>::new([0usize; 0]);
+
+    if let Some(array) = s.downcast_ref::<[usize; 0]>() {
+        assert_eq!(*array, [0usize; 0]);
+    } else {
+        unreachable!();
+    }
 }
