@@ -8,7 +8,7 @@
 //!
 //! ```toml
 //! [dependencies]
-//! smallbox = "0.3"
+//! smallbox = "0.4"
 //! ```
 //!
 //! Next, add this to your crate root:
@@ -23,7 +23,7 @@
 //!
 //! ```toml
 //! [dependencies]
-//! smallbox = { version = "0.3", default-features = false }
+//! smallbox = { version = "0.4", default-features = false }
 //! ```
 //!
 //! Enable `heap` feature for `#![no_std]` build to link `alloc` crate
@@ -31,7 +31,7 @@
 //!
 //! ```toml
 //! [dependencies.smallbox]
-//! version = "0.3"
+//! version = "0.4"
 //! default-features = false
 //! features = ["heap"]
 //! ```
