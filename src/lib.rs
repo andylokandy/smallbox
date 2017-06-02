@@ -131,11 +131,11 @@
 //!
 //! # Capacity
 //! The custom capacity of `SmallBox<T, Space>` and `StackBox<T，Space>` is expressed by the size of type **`Space`**, 
-//! which default to `space::S4` represented as 4 words space (4 * usize). 
+//! which default to `space::S4` representing as 4 words space (4 * usize). 
 //! There are some default options in `smallbox::space` from `S4` to `S64`. 
 //! Anyway, you can defind your space type, or just use some array.
 //!
-//! The `resize()` method on `StackBox<T, Space>` and `SmallBox<T, Space>` is used to transforms itself to the one of bigger capacity.
+//! The `resize()` method on `StackBox<T, Space>` and `SmallBox<T, Space>` is used to transforms themselves to the one of bigger capacity.
 //!
 //! ```
 //! use smallbox::StackBox;
