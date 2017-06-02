@@ -8,7 +8,7 @@ use std::hash;
 use std::hash::Hash;
 use std::cmp::Ordering;
 
-use super::space::S4;
+use super::space::S2;
 
 /// On-stack allocation for dynamically-sized type.
 ///
@@ -21,7 +21,7 @@ use super::space::S4;
 ///
 /// assert!(*val == 5)
 /// ```
-pub struct StackBox<T: ?Sized, Space = S4> {
+pub struct StackBox<T: ?Sized, Space = S2> {
     ptr: Unique<T>,
     space: Space,
 }

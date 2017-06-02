@@ -76,10 +76,10 @@ fn test_closure() {
 
 #[test]
 fn test_oversize() {
-    const MAX_SIZE: usize = 4;
+    const DEFAULT_MAX_SIZE: usize = 2;
 
-    let fit = StackBox::<[usize]>::new([0; MAX_SIZE]);
-    let oversize = StackBox::<[usize]>::new([0; MAX_SIZE + 1]);
+    let fit = StackBox::<[usize]>::new([0; DEFAULT_MAX_SIZE]);
+    let oversize = StackBox::<[usize]>::new([0; DEFAULT_MAX_SIZE + 1]);
     assert!(fit.is_ok());
     assert!(oversize.is_err());
 }
@@ -87,9 +87,10 @@ fn test_oversize() {
 #[test]
 fn test_downcast() {
     use std::any::Any;
+    use smallbox::space::*;
 
-    let num: StackBox<Any> = StackBox::new(1234u32).unwrap();
-    let string: StackBox<Any> = StackBox::new("hello world".to_owned()).unwrap();
+    let num: StackBox<Any, S4> = StackBox::new(1234u32).unwrap();
+    let string: StackBox<Any, S4> = StackBox::new("hello world".to_owned()).unwrap();
 
     if let Some(num) = num.downcast_ref::<u32>() {
         assert_eq!(*num, 1234);

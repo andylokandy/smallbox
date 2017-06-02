@@ -16,6 +16,12 @@
 //! assert!(s.resize::<S16>().is_ok());
 //! ```
 
+/// Represent as 2 * usize space
+pub struct S2 {
+    #[used]
+    inner: [usize; 2],
+}
+
 /// Represent as 4 * usize space
 pub struct S4 {
     #[used]

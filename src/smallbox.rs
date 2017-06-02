@@ -9,7 +9,7 @@ use std::hash::Hash;
 use std::cmp::Ordering;
 
 use super::StackBox;
-use super::space::S4;
+use super::space::S2;
 
 /// Stack allocation with heap fallback
 ///
@@ -22,7 +22,7 @@ use super::space::S4;
 ///
 /// assert!(*val == 5)
 /// ```
-pub enum SmallBox<T: ?Sized, Space = S4> {
+pub enum SmallBox<T: ?Sized, Space = S2> {
     Stack(StackBox<T, Space>),
     Box(Box<T>),
 }
