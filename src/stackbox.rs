@@ -10,6 +10,11 @@ use std::cmp::Ordering;
 
 use super::space::S2;
 
+#[allow(unions_with_drop_fields)]
+union NoDrop<T> {
+    _space: T,
+}
+
 /// On-stack allocation for dynamically-sized type.
 ///
 /// # Examples
@@ -23,7 +28,7 @@ use super::space::S2;
 /// ```
 pub struct StackBox<T: ?Sized, Space = S2> {
     ptr: Unique<T>,
-    space: Space,
+    space: NoDrop<Space>,
 }
 
 impl<T: ?Sized, Space> StackBox<T, Space> {
@@ -46,7 +51,7 @@ impl<T: ?Sized, Space> StackBox<T, Space> {
         } else {
             unsafe {
                 let ptr: Unique<T> = Unique::new(&mut val);
-                let mut space = mem::uninitialized::<Space>();
+                let mut space = NoDrop {_space: mem::uninitialized::<Space>()};
                 ptr::copy_nonoverlapping(&val, &mut space as *mut _ as *mut U, 1);
                 mem::forget(val);
                 Ok(StackBox { ptr, space })
@@ -75,8 +80,8 @@ impl<T: ?Sized, Space> StackBox<T, Space> {
         } else {
             unsafe {
                 let ptr = self.ptr;
-                let mut space = mem::uninitialized::<ToSpace>();
-                ptr::copy_nonoverlapping(&self.space, &mut space as *mut _ as *mut Space, 1);
+                let mut space = NoDrop {_space: mem::uninitialized::<ToSpace>()};
+                ptr::copy_nonoverlapping(&self.space, &mut space as *mut _ as *mut NoDrop<Space>, 1);
                 mem::forget(self);
                 Ok(StackBox { ptr, space })
             }

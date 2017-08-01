@@ -148,3 +148,18 @@ fn test_zst() {
         unreachable!();
     }
 }
+
+#[test]
+fn test_space_not_allocated() {
+    use std::any::Any;
+
+    struct NeverDrop([usize; 4]);
+
+    impl Drop for NeverDrop {
+        fn drop(&mut self) {
+            unreachable!();
+        }
+    }
+
+    StackBox::<Any, NeverDrop>::new([0usize; 4]).unwrap();
+}
