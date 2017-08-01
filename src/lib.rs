@@ -149,6 +149,7 @@
 #![feature(unsize)]
 #![feature(box_syntax)]
 #![feature(unique)]
+#![feature(untagged_unions)]
 #![feature(used)]
 
 #![cfg_attr(not(feature="std"), no_std)]
