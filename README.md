@@ -24,7 +24,7 @@ Next, add this to your crate root:
 extern crate smallbox;
 ```
 
-Currently smallbox by default links to the standard library, but if you would
+Currently `smallbox` by default links to the standard library, but if you would
 instead like to use this crate in a `#![no_std]` situation or crate, and want to 
 opt out heap dependency and `SmallBox<T>` type, you can request this via:
 
@@ -33,7 +33,7 @@ opt out heap dependency and `SmallBox<T>` type, you can request this via:
 smallbox = { version = "0.4", default-features = false }
 ```
 
-Enable `heap` feature for `#![no_std]` build to link `alloc` crate
+Enable `heap` feature for `#![no_std]` build to link to `alloc` crate
 and bring `SmallBox<T>` back.
 
 ```toml
@@ -63,16 +63,15 @@ The **stackbox** crate has the following cargo feature flags:
 This crate delivers two core type:
 
  `StackBox<T>`: Represents as a fixed-capacity allocation, and on stack stores dynamically-sized type. 
- The `new` method on this type allows creating a instance from a concrete type, 
- returning `Err(value)` if the instance is too large for the allocated region. 
+ The `new` method creates returns `Err(value)` if the instance larger then `Space`.
  Default capacity is two words (2 * `sizeof(usize)`), more details on custom capacity are at the following sections.
 
  
- `SmallBox<T>`: Takes `StackBox<T>` as an varience, and fallback to `Box<T>` when type `T` is too large for `StackBox<T>`.
+ `SmallBox<T>`: Takes `StackBox<T>` as an varience, and fallback to heap-alloc `Box<T>` when type `T` is larger then `Space`.
 
 
 # Example
-The simplest usage can be trait object dynamic-dispatch
+The simplest usage is trait object dynamic-dispatch
 ```rust
 use smallbox::StackBox;
  
@@ -135,11 +134,11 @@ match big {
 
 # Capacity
 The custom capacity of `SmallBox<T, Space>` and `StackBox<T，Space>` is expressed by the size of type **`Space`**, 
-which default to `space::S4` representing as 2 words space (2 * usize). 
-There are some default options in `smallbox::space` from `S2` to `S64`. 
-Anyway, you can defind your space type, or just use some array.
+which default to `space::S2` representing as 2 words space (2 * usize). 
+There are some default options in module `smallbox::space` from `S2` to `S64`. 
+Anyway, you can defind your own space type, or just use some array.
 
-The `resize()` method on `StackBox<T, Space>` and `SmallBox<T, Space>` is used to transforms themselves to the one of bigger capacity.
+The `resize()` method on `StackBox<T, Space>` and `SmallBox<T, Space>` is used to transforms themselves to the one of larger capacity.
 
 ```rust
 use smallbox::SmallBox;
@@ -151,8 +150,7 @@ assert!(s.resize::<S16>().is_ok());
 
 
 # Roadmap
-- method that convert SmallBox<T> to Box<T>
-- conveniently convert bewteen `SmallBox<T>` and `StackBox<T>`
+- Static size check (since `mem::size_of()` has become const fn)
 
 
 # Contribution

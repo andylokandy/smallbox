@@ -45,7 +45,7 @@ impl<T: ?Sized, Space> StackBox<T, Space> {
             Err(val)
         } else {
             unsafe {
-                let ptr: Unique<T> = Unique::new(&mut val);
+                let ptr: Unique<T> = Unique::new(&mut val).unwrap();
                 let mut space = mem::uninitialized::<Space>();
                 ptr::copy_nonoverlapping(&val, &mut space as *mut _ as *mut U, 1);
                 mem::forget(val);
