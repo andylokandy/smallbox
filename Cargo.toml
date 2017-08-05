@@ -12,3 +12,6 @@ license = "MIT"
 default = ["std"]
 std = ["heap"]
 heap = []
+
+[dependencies]
+nodrop-union = "0.1.9"

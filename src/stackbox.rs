@@ -2,13 +2,17 @@ use std::ops;
 use std::mem;
 use std::ptr;
 use std::ptr::Unique;
-use std::marker;
+use std::marker::Unsize;
 use std::fmt;
 use std::hash;
 use std::hash::Hash;
 use std::cmp::Ordering;
+use std::ops::CoerceUnsized;
+use nodrop_union::NoDrop;
 
 use super::space::S2;
+
+impl<T: ?Sized + Unsize<U>, U: ?Sized> CoerceUnsized<StackBox<U>> for StackBox<T> {}
 
 /// On-stack allocation for dynamically-sized type.
 ///
@@ -23,7 +27,7 @@ use super::space::S2;
 /// ```
 pub struct StackBox<T: ?Sized, Space = S2> {
     ptr: Unique<T>,
-    space: Space,
+    space: NoDrop<Space>,
 }
 
 impl<T: ?Sized, Space> StackBox<T, Space> {
@@ -39,14 +43,14 @@ impl<T: ?Sized, Space> StackBox<T, Space> {
     /// assert!(StackBox::<[usize]>::new([0usize; 8]).is_err());
     /// ```
     pub fn new<U>(mut val: U) -> Result<StackBox<T, Space>, U>
-        where U: marker::Unsize<T>
+        where U: Unsize<T> + Sized
     {
         if mem::size_of::<U>() > mem::size_of::<Space>() {
             Err(val)
         } else {
             unsafe {
                 let ptr: Unique<T> = Unique::new(&mut val).unwrap();
-                let mut space = mem::uninitialized::<Space>();
+                let mut space = NoDrop::new(mem::uninitialized::<Space>());
                 ptr::copy_nonoverlapping(&val, &mut space as *mut _ as *mut U, 1);
                 mem::forget(val);
                 Ok(StackBox { ptr, space })
@@ -75,8 +79,10 @@ impl<T: ?Sized, Space> StackBox<T, Space> {
         } else {
             unsafe {
                 let ptr = self.ptr;
-                let mut space = mem::uninitialized::<ToSpace>();
-                ptr::copy_nonoverlapping(&self.space, &mut space as *mut _ as *mut Space, 1);
+                let mut space = NoDrop::new(mem::uninitialized::<ToSpace>());
+                ptr::copy_nonoverlapping(&self.space,
+                                         &mut space as *mut _ as *mut NoDrop<Space>,
+                                         1);
                 mem::forget(self);
                 Ok(StackBox { ptr, space })
             }

@@ -2,9 +2,9 @@
 use alloc::boxed::Box;
 
 use std::ops;
-use std::marker;
 use std::fmt;
 use std::hash;
+use std::marker::Unsize;
 use std::hash::Hash;
 use std::cmp::Ordering;
 
@@ -53,7 +53,7 @@ impl<T: ?Sized, Space> SmallBox<T, Space> {
     /// }
     /// ```
     pub fn new<U>(val: U) -> SmallBox<T, Space>
-        where U: marker::Unsize<T>
+        where U: Unsize<T>
     {
         match StackBox::new(val) {
             Ok(x) => SmallBox::Stack(x),

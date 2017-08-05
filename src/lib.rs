@@ -18,7 +18,7 @@
 //! ```
 //!
 //! Currently `smallbox` by default links to the standard library, but if you would
-//! instead like to use this crate in a `#![no_std]` situation or crate, and want to 
+//! instead like to use this crate in a `#![no_std]` situation or crate, and want to
 //! opt out heap dependency and `SmallBox<T>` type, you can request this via:
 //!
 //! ```toml
@@ -130,9 +130,9 @@
 //!
 //!
 //! # Capacity
-//! The custom capacity of `SmallBox<T, Space>` and `StackBox<T，Space>` is expressed by the size of type **`Space`**, 
-//! which default to `space::S2` representing as 2 words space (2 * usize). 
-//! There are some default options in module `smallbox::space` from `S2` to `S64`. 
+//! The custom capacity of `SmallBox<T, Space>` and `StackBox<T，Space>` is expressed by the size of type **`Space`**,
+//! which default to `space::S2` representing as 2 words space (2 * usize).
+//! There are some default options in module `smallbox::space` from `S2` to `S64`.
 //! Anyway, you can defind your own space type, or just use some array.
 //!
 //! The `resize()` method on `StackBox<T, Space>` and `SmallBox<T, Space>` is used to transforms themselves to the one of bigger capacity.
@@ -146,6 +146,7 @@
 //! ```
 
 #![feature(unsize)]
+#![feature(coerce_unsized)]
 #![feature(box_syntax)]
 #![feature(unique)]
 #![feature(used)]
@@ -157,6 +158,7 @@
 extern crate core as std;
 #[cfg(all(feature="heap", not(feature="std")))]
 extern crate alloc;
+extern crate nodrop_union;
 
 pub mod space;
 mod stackbox;

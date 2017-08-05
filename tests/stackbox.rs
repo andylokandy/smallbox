@@ -29,6 +29,21 @@ fn test_drop() {
 }
 
 #[test]
+fn test_nodrop_space() {
+    use std::any::Any;
+    use smallbox::space::S4;
+
+    struct NoDrop(S4);
+    impl Drop for NoDrop {
+        fn drop(&mut self) {
+            unreachable!();
+        }
+    }
+
+    drop(StackBox::<Any, NoDrop>::new(true).unwrap());
+}
+
+#[test]
 fn many_instances() {
     trait TestTrait {
         fn get_value(&self) -> u32;
