@@ -158,7 +158,6 @@
 extern crate core as std;
 #[cfg(all(feature="heap", not(feature="std")))]
 extern crate alloc;
-extern crate nodrop_union;
 
 pub mod space;
 mod stackbox;
