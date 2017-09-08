@@ -8,7 +8,7 @@
 //!
 //! ```toml
 //! [dependencies]
-//! smallbox = "0.4"
+//! smallbox = "0.4.*"
 //! ```
 //!
 //! Next, add this to your crate root:
