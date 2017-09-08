@@ -148,7 +148,6 @@
 #![feature(unsize)]
 #![feature(coerce_unsized)]
 #![feature(box_syntax)]
-#![feature(unique)]
 #![feature(used)]
 
 #![cfg_attr(not(feature="std"), no_std)]

@@ -1,7 +1,6 @@
 use std::ops;
 use std::mem;
 use std::ptr;
-use std::ptr::Unique;
 use std::marker::Unsize;
 use std::marker::PhantomData;
 use std::fmt;
@@ -44,7 +43,7 @@ impl<T: ?Sized, Space> StackBox<T, Space> {
     /// assert!(StackBox::<[usize]>::new([0usize; 1]).is_ok());
     /// assert!(StackBox::<[usize]>::new([0usize; 8]).is_err());
     /// ```
-    pub fn new<U>(mut val: U) -> Result<StackBox<T, Space>, U>
+    pub fn new<U>(val: U) -> Result<StackBox<T, Space>, U>
         where U: Unsize<T> + Sized
     {
         if mem::size_of::<U>() > mem::size_of::<Space>() {
