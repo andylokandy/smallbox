@@ -3,6 +3,7 @@ use std::mem;
 use std::ptr;
 use std::ptr::Unique;
 use std::marker::Unsize;
+use std::marker::PhantomData;
 use std::fmt;
 use std::hash;
 use std::hash::Hash;
@@ -26,8 +27,9 @@ impl<T: ?Sized + Unsize<U>, U: ?Sized> CoerceUnsized<StackBox<U>> for StackBox<T
 /// assert!(*val == 5)
 /// ```
 pub struct StackBox<T: ?Sized, Space = S2> {
-    ptr: Unique<T>,
+    ptr: *const T,
     space: NoDrop<Space>,
+    _phantom: PhantomData<T>,
 }
 
 impl<T: ?Sized, Space> StackBox<T, Space> {
@@ -49,11 +51,15 @@ impl<T: ?Sized, Space> StackBox<T, Space> {
             Err(val)
         } else {
             unsafe {
-                let ptr: Unique<T> = Unique::new(&mut val).unwrap();
+                let ptr = &val as *const _;
                 let mut space = NoDrop::new(mem::uninitialized::<Space>());
                 ptr::copy_nonoverlapping(&val, &mut space as *mut _ as *mut U, 1);
                 mem::forget(val);
-                Ok(StackBox { ptr, space })
+                Ok(StackBox {
+                       ptr,
+                       space,
+                       _phantom: PhantomData,
+                   })
             }
         }
     }
@@ -84,13 +90,17 @@ impl<T: ?Sized, Space> StackBox<T, Space> {
                                          &mut space as *mut _ as *mut NoDrop<Space>,
                                          1);
                 mem::forget(self);
-                Ok(StackBox { ptr, space })
+                Ok(StackBox {
+                       ptr,
+                       space,
+                       _phantom: PhantomData,
+                   })
             }
         }
     }
 
     unsafe fn as_ptr(&self) -> *const T {
-        let mut ptr: *const T = self.ptr.as_ptr();
+        let mut ptr: *const T = self.ptr;
         *(&mut ptr as *mut _ as *mut usize) = &self.space as *const _ as usize;
         ptr
     }
