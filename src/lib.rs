@@ -23,7 +23,7 @@
 //!
 //! ```toml
 //! [dependencies]
-//! smallbox = { version = "0.4", default-features = false }
+//! smallbox = { version = "0.4.*", default-features = false }
 //! ```
 //!
 //! Enable `heap` feature for `#![no_std]` build to link to `alloc` crate
@@ -31,7 +31,7 @@
 //!
 //! ```toml
 //! [dependencies.smallbox]
-//! version = "0.4"
+//! version = "0.4.*"
 //! default-features = false
 //! features = ["heap"]
 //! ```

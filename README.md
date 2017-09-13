@@ -30,7 +30,7 @@ opt out heap dependency and `SmallBox<T>` type, you can request this via:
 
 ```toml
 [dependencies]
-smallbox = { version = "0.4", default-features = false }
+smallbox = { version = "0.4.*", default-features = false }
 ```
 
 Enable `heap` feature for `#![no_std]` build to link to `alloc` crate
@@ -38,7 +38,7 @@ and bring `SmallBox<T>` back.
 
 ```toml
 [dependencies.smallbox]
-version = "0.4"
+version = "0.4.*"
 default-features = false
 features = ["heap"]
 ```
