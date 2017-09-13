@@ -1,5 +1,6 @@
 use std::ops;
 use std::mem;
+use std::mem::ManuallyDrop;
 use std::ptr;
 use std::marker::Unsize;
 use std::marker::PhantomData;
@@ -8,7 +9,6 @@ use std::hash;
 use std::hash::Hash;
 use std::cmp::Ordering;
 use std::ops::CoerceUnsized;
-use nodrop_union::NoDrop;
 
 use super::space::S2;
 
@@ -27,7 +27,7 @@ impl<T: ?Sized + Unsize<U>, U: ?Sized> CoerceUnsized<StackBox<U>> for StackBox<T
 /// ```
 pub struct StackBox<T: ?Sized, Space = S2> {
     ptr: *const T,
-    space: NoDrop<Space>,
+    space: ManuallyDrop<Space>,
     _phantom: PhantomData<T>,
 }
 
@@ -51,9 +51,11 @@ impl<T: ?Sized, Space> StackBox<T, Space> {
         } else {
             unsafe {
                 let ptr = &val as *const _;
-                let mut space = NoDrop::new(mem::uninitialized::<Space>());
+                let mut space = ManuallyDrop::new(mem::uninitialized::<Space>());
+              
                 ptr::copy_nonoverlapping(&val, &mut space as *mut _ as *mut U, 1);
                 mem::forget(val);
+              
                 Ok(StackBox {
                        ptr,
                        space,
@@ -84,9 +86,9 @@ impl<T: ?Sized, Space> StackBox<T, Space> {
         } else {
             unsafe {
                 let ptr = self.ptr;
-                let mut space = NoDrop::new(mem::uninitialized::<ToSpace>());
+                let mut space = ManuallyDrop::new(mem::uninitialized::<ToSpace>());
                 ptr::copy_nonoverlapping(&self.space,
-                                         &mut space as *mut _ as *mut NoDrop<Space>,
+                                         &mut space as *mut _ as *mut ManuallyDrop<Space>,
                                          1);
                 mem::forget(self);
                 Ok(StackBox {
