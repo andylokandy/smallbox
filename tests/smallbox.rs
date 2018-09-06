@@ -6,18 +6,35 @@ use smallbox::SmallBox;
 
 #[test]
 fn basic() {
-    let small_stack = SmallBox::<PartialEq<u32>>::new(4321u32);
+    let small_stack = SmallBox::<u32>::new(4321u32);
     assert!(*small_stack == 4321);
     match small_stack {
         SmallBox::Stack(_) => (),
         _ => unreachable!(),
     }
 
-    let small_heap = SmallBox::<[usize]>::new([5; 1000]);
+    let small_heap = SmallBox::<[usize; 1000]>::new([5; 1000]);
     assert!(small_heap.iter().eq([5; 1000].iter()));
     match small_heap {
         SmallBox::Box(_) => (),
         _ => unreachable!(),
+    }
+
+    #[cfg(feature = "nightly")]
+    {
+        let small_stack = SmallBox::<PartialEq<u32>>::new(4321u32);
+        assert!(*small_stack == 4321);
+        match small_stack {
+            SmallBox::Stack(_) => (),
+            _ => unreachable!(),
+        }
+
+        let small_heap = SmallBox::<[usize]>::new([5; 1000]);
+        assert!(small_heap.iter().eq([5; 1000].iter()));
+        match small_heap {
+            SmallBox::Box(_) => (),
+            _ => unreachable!(),
+        }
     }
 }
 

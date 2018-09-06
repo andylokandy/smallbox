@@ -4,6 +4,7 @@ use alloc::boxed::Box;
 use std::ops;
 use std::fmt;
 use std::hash;
+#[cfg(feature = "nightly")]
 use std::marker::Unsize;
 use std::hash::Hash;
 use std::cmp::Ordering;
@@ -52,12 +53,47 @@ impl<T: ?Sized, Space> SmallBox<T, Space> {
     ///     _ => unreachable!()
     /// }
     /// ```
+    #[cfg(feature = "nightly")]
     pub fn new<U>(val: U) -> SmallBox<T, Space>
         where U: Unsize<T>
     {
         match StackBox::new(val) {
             Ok(x) => SmallBox::Stack(x),
             Err(x) => SmallBox::Box(box x),
+        }
+    }
+
+    /// Box val on stack or heap depending on its size
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use smallbox::SmallBox;
+    /// use smallbox::space::*;
+    ///
+    /// let tiny: SmallBox<[u64], S4> = SmallBox::new([0; 2]);
+    /// let big: SmallBox<[u64], S4> = SmallBox::new([1; 8]);
+    ///
+    /// assert_eq!(tiny.len(), 2);
+    /// assert_eq!(big[7], 1);
+    ///
+    /// match tiny {
+    ///     SmallBox::Stack(val) => assert_eq!(*val, [0; 2]),
+    ///     _ => unreachable!()
+    /// }
+    ///
+    /// match big {
+    ///     SmallBox::Box(val) => assert_eq!(*val, [1; 8]),
+    ///     _ => unreachable!()
+    /// }
+    /// ```
+    #[cfg(not(feature = "nightly"))]
+    pub fn new(val: T) -> SmallBox<T, Space>
+        where T: Sized
+    {
+        match StackBox::new(val) {
+            Ok(x) => SmallBox::Stack(x),
+            Err(x) => SmallBox::Box(Box::new(x)),
         }
     }
 

@@ -2,16 +2,19 @@ use std::ops;
 use std::mem;
 use std::mem::ManuallyDrop;
 use std::ptr;
+#[cfg(feature = "nightly")]
 use std::marker::Unsize;
 use std::marker::PhantomData;
 use std::fmt;
 use std::hash;
 use std::hash::Hash;
 use std::cmp::Ordering;
+#[cfg(feature = "nightly")]
 use std::ops::CoerceUnsized;
 
 use super::space::S2;
 
+#[cfg(feature = "nightly")]
 impl<T: ?Sized + Unsize<U>, U: ?Sized> CoerceUnsized<StackBox<U>> for StackBox<T> {}
 
 /// On-stack allocation for dynamically-sized type.
@@ -43,6 +46,7 @@ impl<T: ?Sized, Space> StackBox<T, Space> {
     /// assert!(StackBox::<[usize]>::new([0usize; 1]).is_ok());
     /// assert!(StackBox::<[usize]>::new([0usize; 8]).is_err());
     /// ```
+    #[cfg(feature = "nightly")]
     pub fn new<U>(val: U) -> Result<StackBox<T, Space>, U>
         where U: Unsize<T> + Sized
     {
@@ -56,6 +60,40 @@ impl<T: ?Sized, Space> StackBox<T, Space> {
                 ptr::copy_nonoverlapping(&val, &mut space as *mut _ as *mut U, 1);
                 mem::forget(val);
               
+                Ok(StackBox {
+                       ptr,
+                       space,
+                       _phantom: PhantomData,
+                   })
+            }
+        }
+    }
+
+    /// Try to alloc on stack, and return Err<T>
+    /// when val is larger than capacity
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use smallbox::StackBox;
+    ///
+    /// assert!(StackBox::<[usize]>::new([0usize; 1]).is_ok());
+    /// assert!(StackBox::<[usize]>::new([0usize; 8]).is_err());
+    /// ```
+    #[cfg(not(feature = "nightly"))]
+    pub fn new(val: T) -> Result<StackBox<T, Space>, T>
+        where T: Sized
+    {
+        if mem::size_of::<T>() > mem::size_of::<Space>() {
+            Err(val)
+        } else {
+            unsafe {
+                let ptr = &val as *const _;
+                let mut space = ManuallyDrop::new(mem::uninitialized::<Space>());
+
+                ptr::copy_nonoverlapping(&val, &mut space as *mut _ as *mut T, 1);
+                mem::forget(val);
+
                 Ok(StackBox {
                        ptr,
                        space,

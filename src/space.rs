@@ -18,36 +18,30 @@
 
 /// Represent as 2 * usize space
 pub struct S2 {
-    #[used]
-    inner: [usize; 2],
+    _inner: [usize; 2],
 }
 
 /// Represent as 4 * usize space
 pub struct S4 {
-    #[used]
-    inner: [usize; 4],
+    _inner: [usize; 4],
 }
 
 /// Represent as 8 * usize space
 pub struct S8 {
-    #[used]
-    inner: [usize; 8],
+    _inner: [usize; 8],
 }
 
 /// Represent as 16 * usize space
 pub struct S16 {
-    #[used]
-    inner: [usize; 16],
+    _inner: [usize; 16],
 }
 
 /// Represent as 32 * usize space
 pub struct S32 {
-    #[used]
-    inner: [usize; 32],
+    _inner: [usize; 32],
 }
 
 /// Represent as 64 * usize space
 pub struct S64 {
-    #[used]
-    inner: [usize; 64],
+    _inner: [usize; 64],
 }

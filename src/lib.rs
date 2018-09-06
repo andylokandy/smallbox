@@ -145,10 +145,9 @@
 //! assert!(s.resize::<S16>().is_ok());
 //! ```
 
-#![feature(unsize)]
-#![feature(coerce_unsized)]
-#![feature(box_syntax)]
-#![feature(used)]
+#![cfg_attr(feature="std", feature(unsize))]
+#![cfg_attr(feature="std", feature(coerce_unsized))]
+#![cfg_attr(feature="std", feature(box_syntax))]
 
 #![cfg_attr(not(feature="std"), no_std)]
 #![cfg_attr(all(feature="heap", not(feature="std")), feature(alloc))]
