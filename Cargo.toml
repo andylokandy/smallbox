@@ -12,3 +12,4 @@ license = "MIT"
 default = ["std"]
 std = ["heap"]
 heap = []
+nightly = []

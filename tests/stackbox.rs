@@ -4,6 +4,10 @@ use smallbox::StackBox;
 
 #[test]
 fn basic() {
+    let stack = StackBox::<u32>::new(1234u32).unwrap();
+    assert!(*stack == 1234);
+
+    #[cfg(feature = "nightly")]
     let stack = StackBox::<PartialEq<u32>>::new(1234u32).unwrap();
     assert!(*stack == 1234);
 }
