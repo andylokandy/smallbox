@@ -64,16 +64,16 @@
 //!   - Require nightly rust
 //!   - Enable support for `DST` (dynamic-sized type).
 //!
-//! 
+//!
 //! # Stable Rust
 //!
 //! The only possible way to use this crate on stable rust is to use the default feature flag, which means you can't use it in `no_std`
 //! environment or use it with `DST` (dynamic-sized type).
 //!
 //! # Unsized Type
-//! 
+//!
 //! Once the feature `unsize` is enabled, the item type `T` of `SmallBox` and `StackBox` can
-//! and should be a unsized type, such as trait object or owned array slice. 
+//! and should be a unsized type, such as trait object or owned array slice.
 //!
 //! # Overview
 //! This crate delivers two core type:
@@ -168,10 +168,7 @@
 //! # }
 //! ```
 
-#![cfg_attr(
-    feature = "unsize",
-    feature(unsize, box_syntax)
-)]
+#![cfg_attr(feature = "unsize", feature(unsize, box_syntax))]
 #![cfg_attr(not(feature = "std"), no_std)]
 #![cfg_attr(all(feature = "heap", not(feature = "std")), feature(alloc))]
 
@@ -180,10 +177,12 @@ extern crate alloc;
 #[cfg(not(feature = "std"))]
 extern crate core as std;
 
+#[cfg(feature = "heap")]
 mod smallbox;
 pub mod space;
 mod stackbox;
 
+#[cfg(feature = "heap")]
 pub use smallbox::SmallBox;
 pub use stackbox::StackBox;
 
