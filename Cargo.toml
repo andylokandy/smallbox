@@ -1,9 +1,9 @@
 [package]
 name = "smallbox"
-version = "0.4.4"
-authors = ["goandylok"]
+version = "0.5.0"
+authors = ["andylokandy"]
 description = "Box dynamically-sized types on stack"
-repository = "https://github.com/goandylok/smallbox"
+repository = "https://github.com/andylokandy/smallbox"
 documentation = "https://docs.rs/smallbox/"
 keywords = ["box", "alloc", "dst", "stack", "no_std"]
 license = "MIT"
@@ -12,4 +12,4 @@ license = "MIT"
 default = ["std"]
 std = ["heap"]
 heap = []
-nightly = []
+unsize = []

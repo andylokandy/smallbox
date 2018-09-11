@@ -1,14 +1,12 @@
-//! Box dynamically-sized types on stack
-//! Requires nightly rust.
-//!
-//! Store or return trait-object and closure without heap allocation, and fallback to heap when thing goes too large.
+//! `Small Box` optimization: store small item on the stack and fallback to heap for large item.
 //!
 //! # Usage
+//!
 //! First, add the following to your `Cargo.toml`:
 //!
 //! ```toml
 //! [dependencies]
-//! smallbox = "0.4.*"
+//! smallbox = "0.5"
 //! ```
 //!
 //! Next, add this to your crate root:
@@ -17,13 +15,22 @@
 //! extern crate smallbox;
 //! ```
 //!
+//! If you want this crate to work with dynamic-sized type, you can request it via:
+//!
+//! ```toml
+//! [dependencies]
+//! smallbox = { version = "0.5", features = ["unsize"] }
+//! ```
+//!
 //! Currently `smallbox` by default links to the standard library, but if you would
 //! instead like to use this crate in a `#![no_std]` situation or crate, and want to
 //! opt out heap dependency and `SmallBox<T>` type, you can request this via:
 //!
 //! ```toml
-//! [dependencies]
-//! smallbox = { version = "0.4.*", default-features = false }
+//! [dependencies.smallbox]
+//! version = "0.5"
+//! features = ["unsize"]
+//! default-features = false
 //! ```
 //!
 //! Enable `heap` feature for `#![no_std]` build to link to `alloc` crate
@@ -31,13 +38,14 @@
 //!
 //! ```toml
 //! [dependencies.smallbox]
-//! version = "0.4.*"
+//! version = "0.5"
+//! features = ["unsize", "heap"]
 //! default-features = false
-//! features = ["heap"]
 //! ```
 //!
 //!
 //! # Feature Flags
+//!
 //! This crate has the following cargo feature flags:
 //!
 //! - `std`
@@ -46,122 +54,138 @@
 //!
 //!
 //! - `heap`
-//!   - Optional
-//!   - Use heap fallback and include `SmallBox<T>` type, and link to `alloc` crate if `std`
-//!     feature flag is opted out.
+//!   - Optional, enabled by default
+//!   - Support heap fallback by including `SmallBox<T>`
+//!   - If `std` feature flag is opted out, this will link
+//!   `alloc` crate, and it need nightly rust for that.
 //!
+//! - `unsize`
+//!   - Optional
+//!   - Require nightly rust
+//!   - Enable support for `DST` (dynamic-sized type).
+//!
+//! 
+//! # Stable Rust
+//!
+//! The only possible way to use this crate on stable rust is to use the default feature flag, which means you can't use it in `no_std`
+//! environment or use it with `DST` (dynamic-sized type).
+//!
+//! # Unsized Type
+//! 
+//! Once the feature `unsize` is enabled, the item type `T` of `SmallBox` and `StackBox` can
+//! and should be a unsized type, such as trait object or owned array slice. 
 //!
 //! # Overview
 //! This crate delivers two core type:
 //!
-//!  `StackBox<T>`: Represents as a fixed-capacity allocation, and on stack stores dynamically-sized type.
-//!   The `new` method creates returns `Err(value)` if the instance larger then `Space`.
-//!   Default capacity is two words (2 * `sizeof(usize)`), more details on custom capacity are at the following sections.
+//! - `SmallBox<T, Space>`: Stores `T` on heap or stack depending on the size of `T`. It takes `StackBox<T, Space>` as an varience to store small item, and then fallback to heap allocated `Box<T>` when type `T` is larger then the capacity of `Space`.
 //!
-//!  `SmallBox<T>`: Takes `StackBox<T>` as an varience, and fallback to heap-alloc `Box<T>` when type `T` is larger then `Space`.
-//!
+//! - `StackBox<T, Space>`: Represents as a fixed-capacity allocation, and  stores item on stack.
 //!
 //! # Example
-//! The simplest usage can be trait object dynamic-dispatch
+//!
+//! Eliminate heap alloction for small items by `SmallBox`:
 //!
 //! ```rust
-//! use smallbox::StackBox;
+//! # #[cfg(not(feature = "unsize"))]
+//! # {
+//! use smallbox::SmallBox;
+//! use smallbox::space::S4;
 //!
-//! let val: StackBox<PartialEq<usize>> = StackBox::new(5usize).unwrap();
+//! let small: SmallBox<_, S4> = SmallBox::new([0; 2]);
+//! let large: SmallBox<_, S4> = SmallBox::new([0; 32]);
 //!
-//! assert!(*val == 5)
+//! assert_eq!(small.len(), 2);
+//! assert_eq!(large.len(), 32);
+//!
+//! match small {
+//!     SmallBox::Stack(val) => assert_eq!(*val, [0; 2]),
+//!     _ => unreachable!()
+//! }
+//!
+//! match large {
+//!     SmallBox::Box(val) => assert_eq!(*val, [0; 32]),
+//!     _ => unreachable!()
+//! }
+//! # }
 //! ```
 //!
-//! `Any` downcasting is also quite a good use.
+//! ## DST
+//!
+//! The following examples requires `unsize` feature flag enabled.
+//!
+//! Trait object dynamic-dispatch:
 //!
 //! ```rust
-//! use std::any::Any;
+//! # #[cfg(feature = "unsize")]
+//! # {
 //! use smallbox::StackBox;
+//! use smallbox::space::S1;
+//!  
+//! let val: StackBox<PartialEq<usize>, S1> = StackBox::new(5usize).unwrap();
+//!  
+//! assert!(*val == 5)
+//! # }
+//! ```
 //!
-//! let num: StackBox<Any> = StackBox::new(1234u32).unwrap();
+//! `Any` downcasting:
+//!
+//! ```rust
+//! # #[cfg(feature = "unsize")]
+//! # {
+//! use std::any::Any;
+//! use smallbox::SmallBox;
+//! use smallbox::space::S2;
+//!
+//! let num: SmallBox<Any, S2> = SmallBox::new(1234u32);
 //!
 //! if let Some(num) = num.downcast_ref::<u32>() {
 //!     assert_eq!(*num, 1234);
 //! } else {
 //!     unreachable!();
 //! }
-//! ```
-//!
-//! Another use case is to allow returning capturing closures without having to box them.
-//!
-//! ```rust
-//! use smallbox::StackBox;
-//! use smallbox::space::*;
-//!
-//! fn make_closure(s: String) -> StackBox<Fn()->String, S4> {
-//!     StackBox::new(move || format!("Hello, {}", s)).ok().unwrap()
-//! }
-//!
-//! let closure = make_closure("world!".to_owned());
-//! assert_eq!(closure(), "Hello, world!");
-//! ```
-//!
-//! `SmallBox<T>` is to eliminate heap alloction for small things, except that
-//! the object is large enough to allocte.
-//! In addition, the inner `StackBox<T>` or `Box<T>` can be moved out by explicit pattern match.
-//!
-//! ```rust
-//! # #[cfg(feature = "heap")]
-//! # {
-//! use smallbox::SmallBox;
-//!
-//! let tiny: SmallBox<[u64]> = SmallBox::new([0; 2]);
-//! let big: SmallBox<[u64]> = SmallBox::new([1; 8]);
-//!
-//! assert_eq!(tiny.len(), 2);
-//! assert_eq!(big[7], 1);
-//!
-//! match tiny {
-//!     SmallBox::Stack(val) => assert_eq!(*val, [0; 2]),
-//!     _ => unreachable!()
-//! }
-//!
-//! match big {
-//!     SmallBox::Box(val) => assert_eq!(*val, [1; 8]),
-//!     _ => unreachable!()
-//! }
 //! # }
 //! ```
 //!
 //!
 //! # Capacity
-//! The custom capacity of `SmallBox<T, Space>` and `StackBox<T，Space>` is expressed by the size of type **`Space`**,
-//! which default to `space::S2` representing as 2 words space (2 * usize).
-//! There are some default options in module `smallbox::space` from `S2` to `S64`.
-//! Anyway, you can defind your own space type, or just use some array.
+//! The capacity of `SmallBox<T, Space>` and `StackBox<T，Space>` is expressed by the size of type **`Space`**, regardless of what the `Space` actually is.
 //!
-//! The `resize()` method on `StackBox<T, Space>` and `SmallBox<T, Space>` is used to transforms themselves to the one of bigger capacity.
+//! This crate provides some spaces in module `smallbox::space`, from `S2`, 'S4' to `S64`, representing a `"n * usize"` space.
 //!
+//! Anyway, you can defind your own space type, such as a byte array `[u8;64]`.
+//!
+//! The `resize()` method on `StackBox<T, Space>` and `SmallBox<T, Space>` is used to transforms the capacity.
+//!
+//! ```rust
+//! # #[cfg(not(feature = "unsize"))]
+//! # {
+//! use smallbox::SmallBox;
+//! use smallbox::space::{S8, S16};
+//!
+//! let s = SmallBox::<[usize; 8], S8>::new([0usize; 8]);
+//! let m = s.resize::<S16>();
+//! # }
 //! ```
-//! use smallbox::StackBox;
-//! use smallbox::space::*;
-//!
-//! let s = StackBox::<[usize], S8>::new([0usize; 8]).unwrap();
-//! assert!(s.resize::<S16>().is_ok());
-//! ```
 
-#![cfg_attr(feature="std", feature(unsize))]
-#![cfg_attr(feature="std", feature(coerce_unsized))]
-#![cfg_attr(feature="std", feature(box_syntax))]
+#![cfg_attr(
+    feature = "unsize",
+    feature(unsize, box_syntax)
+)]
+#![cfg_attr(not(feature = "std"), no_std)]
+#![cfg_attr(all(feature = "heap", not(feature = "std")), feature(alloc))]
 
-#![cfg_attr(not(feature="std"), no_std)]
-#![cfg_attr(all(feature="heap", not(feature="std")), feature(alloc))]
-
+#[cfg(all(feature = "heap", not(feature = "std")))]
+extern crate alloc;
 #[cfg(not(feature = "std"))]
 extern crate core as std;
-#[cfg(all(feature="heap", not(feature="std")))]
-extern crate alloc;
 
+mod smallbox;
 pub mod space;
 mod stackbox;
-#[cfg(feature = "heap")]
-mod smallbox;
 
-pub use stackbox::StackBox;
-#[cfg(feature = "heap")]
 pub use smallbox::SmallBox;
+pub use stackbox::StackBox;
+
+#[cfg(not(any(feature = "heap", feature = "unsize")))]
+compile_error!("Either feature \"heap\" or \"unsize\" must be enabled for this crate.");

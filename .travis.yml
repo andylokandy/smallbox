@@ -4,9 +4,8 @@ rust:
   - nightly
 
 script:
-  - cargo build --verbose
   - cargo test --verbose
-  - cargo build --verbose --no-default-features
-  - cargo test --verbose --no-default-features
-  - cargo build --verbose --no-default-features --features "heap"
+  - cargo test --verbose --features "unsize"
   - cargo test --verbose --no-default-features --features "heap"
+  - cargo test --verbose --no-default-features --features "unsize"
+  - cargo test --verbose --no-default-features --features "heap unsize"
