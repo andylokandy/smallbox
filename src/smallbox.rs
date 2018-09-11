@@ -63,7 +63,10 @@ impl<T: ?Sized, Space> SmallBox<T, Space> {
     {
         match StackBox::new(val) {
             Ok(x) => SmallBox::Stack(x),
-            Err(x) => SmallBox::Box(box x),
+            Err(x) => {
+                let boxed: Box<U> = Box::new(x);
+                SmallBox::Box(boxed)
+            }
         }
     }
 

@@ -131,7 +131,7 @@
 //! `Any` downcasting:
 //!
 //! ```rust
-//! # #[cfg(feature = "unsize")]
+//! # #[cfg(feature = "heap unsize")]
 //! # {
 //! use std::any::Any;
 //! use smallbox::SmallBox;
@@ -168,13 +168,13 @@
 //! # }
 //! ```
 
-#![cfg_attr(feature = "unsize", feature(unsize, box_syntax))]
-#![cfg_attr(not(feature = "std"), no_std)]
+#![cfg_attr(feature = "unsize", feature(unsize))]
+#![cfg_attr(all(not(feature = "std"), doctest), no_std)]
 #![cfg_attr(all(feature = "heap", not(feature = "std")), feature(alloc))]
 
 #[cfg(all(feature = "heap", not(feature = "std")))]
 extern crate alloc;
-#[cfg(not(feature = "std"))]
+#[cfg(all(not(feature = "std"), doctest))]
 extern crate core as std;
 
 #[cfg(feature = "heap")]
