@@ -172,6 +172,9 @@
 #![cfg_attr(all(not(feature = "std"), doctest), no_std)]
 #![cfg_attr(all(feature = "heap", not(feature = "std")), feature(alloc))]
 
+#[cfg(not(any(feature = "heap", feature = "unsize")))]
+compile_error!("Either feature \"heap\" or \"unsize\" must be enabled for this crate.");
+
 #[cfg(all(feature = "heap", not(feature = "std")))]
 extern crate alloc;
 #[cfg(all(not(feature = "std"), doctest))]
@@ -185,6 +188,3 @@ mod stackbox;
 #[cfg(feature = "heap")]
 pub use smallbox::SmallBox;
 pub use stackbox::StackBox;
-
-#[cfg(not(any(feature = "heap", feature = "unsize")))]
-compile_error!("Either feature \"heap\" or \"unsize\" must be enabled for this crate.");

@@ -148,6 +148,22 @@
  }
  ```
 
+# Benchmark
+
+The test platform is Windows 10 on Intel E3 v1230 v3.
+
+```
+running 6 tests
+test box_large_item                  ... bench:         102 ns/iter (+/- 15)
+test box_small_item                  ... bench:          48 ns/iter (+/- 16)
+test smallbox_large_item_large_space ... bench:          64 ns/iter (+/- 1)
+test smallbox_large_item_small_space ... bench:         113 ns/iter (+/- 14)
+test smallbox_small_item_large_space ... bench:          17 ns/iter (+/- 0)
+test smallbox_small_item_small_space ... bench:           6 ns/iter (+/- 0)
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 6 measured; 0 filtered out
+```
+
 # Roadmap
 
 - check size statically.

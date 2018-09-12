@@ -14,11 +14,6 @@ use std::marker::Unsize;
 #[cfg(all(feature = "heap", not(feature = "std")))]
 use alloc::boxed::Box;
 
-// #[cfg(feature = "unsize")]
-// impl<T: ?Sized + Unsize<U>, U: ?Sized, Space> CoerceUnsized<StackBox<U, Space>>
-//     for StackBox<T, Space>
-// {}
-
 /// A box container that only stores item on stack
 pub struct StackBox<T: ?Sized, Space> {
     space: ManuallyDrop<Space>,
