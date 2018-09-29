@@ -40,7 +40,9 @@ impl<T: ?Sized, Space> StackBox<T, Space> {
     where
         T: Sized,
     {
-        if mem::size_of::<T>() > mem::size_of::<Space>() {
+        if mem::size_of::<T>() > mem::size_of::<Space>()
+            || mem::align_of::<T>() > mem::align_of::<Space>()
+        {
             Err(val)
         } else {
             unsafe {
@@ -74,7 +76,9 @@ impl<T: ?Sized, Space> StackBox<T, Space> {
     where
         U: Sized + Unsize<T>,
     {
-        if mem::size_of::<U>() > mem::size_of::<Space>() {
+        if mem::size_of::<U>() > mem::size_of::<Space>()
+            || mem::align_of::<U>() > mem::align_of::<Space>()
+        {
             Err(val)
         } else {
             unsafe {

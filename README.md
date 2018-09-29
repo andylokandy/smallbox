@@ -82,7 +82,7 @@
  # Unsized Type
  
  Once the feature `unsize` is enabled, the item type `T` of `SmallBox` and `StackBox` can
- and should be a unsized type, such as trait object or owned array slice. 
+ and must be an unsized type, such as trait object or owned array slice. 
 
  # Overview
  This crate delivers two core type:
