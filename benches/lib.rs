@@ -1,8 +1,5 @@
 #![feature(test)]
 
-#[cfg(any(not(feature = "std"), feature = "unsize"))]
-compile_error!("Bench is only available for default feature flag now.");
-
 extern crate smallbox;
 extern crate test;
 

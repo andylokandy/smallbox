@@ -1,8 +1,8 @@
 [package]
 name = "smallbox"
-version = "0.5.1"
+version = "0.6.0"
 authors = ["andylokandy"]
-description = "Box dynamically-sized types on stack"
+description = "`Small Box` optimization: store small item on the stack or fallback to heap for large item."
 repository = "https://github.com/andylokandy/smallbox"
 documentation = "https://docs.rs/smallbox/"
 keywords = ["box", "alloc", "dst", "stack", "no_std"]
@@ -10,6 +10,5 @@ license = "MIT"
 
 [features]
 default = ["std"]
-std = ["heap"]
-heap = []
+std = []
 unsize = []
