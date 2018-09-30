@@ -2,12 +2,11 @@
 
 [![Build Status](https://travis-ci.org/andylokandy/smallbox.svg?branch=master)](https://travis-ci.org/andylokandy/smallbox)
 [![crates.io](https://img.shields.io/crates/v/smallbox.svg)](https://crates.io/crates/smallbox)
-[![docs.rs](https://docs.rs/smallbox/badge.svg)](https://docs.rs/smallbox)
 
 
 `Small Box` optimization: store small item on the stack or fallback to heap for large item.
 
-## [**Documentation**](https://docs.rs/smallbox/)
+## [**Documentation**](https://andylokandy.github.io/smallbox)
 
  # Usage
 
