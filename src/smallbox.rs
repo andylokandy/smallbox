@@ -255,6 +255,9 @@ impl<T: ?Sized + Hash, Space> Hash for SmallBox<T, Space> {
     }
 }
 
+unsafe impl<T: ?Sized + Send, Space> Send for SmallBox<T, Space> {}
+unsafe impl<T: ?Sized + Sync, Space> Sync for SmallBox<T, Space> {}
+
 #[cfg(test)]
 mod tests {
     use super::SmallBox;
