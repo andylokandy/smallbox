@@ -1,0 +1,1 @@
+initSidebarItems({"mod":[["space","Space types that used to define capacity"]],"struct":[["SmallBox","A box container that only stores item on stack"]]});
