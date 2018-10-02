@@ -6,7 +6,7 @@
 //!
 //! ```toml
 //! [dependencies]
-//! smallbox = "0.6"
+//! smallbox = "0.7"
 //! ```
 //!
 //! Next, add this to your crate root:
@@ -19,7 +19,7 @@
 //!
 //! ```toml
 //! [dependencies]
-//! smallbox = { version = "0.6", features = ["coerce"] }
+//! smallbox = { version = "0.7", features = ["coerce"] }
 //! ```
 //!
 //! Currently `smallbox` by default links to the standard library, but if you would
@@ -27,7 +27,7 @@
 //!
 //! ```toml
 //! [dependencies.smallbox]
-//! version = "0.6"
+//! version = "0.7"
 //! features = ["coerce"]
 //! default-features = false
 //! ```

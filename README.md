@@ -14,7 +14,7 @@ First, add the following to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-smallbox = "0.6"
+smallbox = "0.7"
 ```
 
 Next, add this to your crate root:
@@ -27,7 +27,7 @@ If you want this crate to work with dynamic-sized type, you can request it via:
 
 ```toml
 [dependencies]
-smallbox = { version = "0.6", features = ["coerce"] }
+smallbox = { version = "0.7", features = ["coerce"] }
 ```
 
 Currently `smallbox` by default links to the standard library, but if you would
@@ -35,7 +35,7 @@ instead like to use this crate in a `#![no_std]` situation or crate, you can req
 
 ```toml
 [dependencies.smallbox]
-version = "0.6"
+version = "0.7"
 features = ["coerce"]
 default-features = false
 ```
