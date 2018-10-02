@@ -8,7 +8,7 @@
 
 ## [**Documentation**](https://andylokandy.github.io/smallbox)
 
- # Usage
+# Usage
 
 First, add the following to your `Cargo.toml`:
 
@@ -27,17 +27,16 @@ If you want this crate to work with dynamic-sized type, you can request it via:
 
 ```toml
 [dependencies]
-smallbox = { version = "0.6", features = ["unsize"] }
+smallbox = { version = "0.6", features = ["coerce"] }
 ```
 
 Currently `smallbox` by default links to the standard library, but if you would
-instead like to use this crate in a `#![no_std]` situation or crate,
-you can request this via, this would link `alloc` crate and requires nightly rust:
+instead like to use this crate in a `#![no_std]` situation or crate, you can request this via:
 
 ```toml
 [dependencies.smallbox]
 version = "0.6"
-features = ["unsize"]
+features = ["coerce"]
 default-features = false
 ```
 
@@ -50,22 +49,22 @@ This crate has the following cargo feature flags:
   - Optional, enabled by default
   - Use libstd
   - If `std` feature flag is opted out, `alloc` crate
-    will be linked, which would require nightly rust.
+    will be linked, which requires nightly rust.
 
-- `unsize`
+- `coerce`
   - Optional
   - Require nightly rust
-  - Enable support for `DST` (dynamic-sized type).
+  - Allow automatic coersion from sized `SmallBox` to unsized `SmallBox`.
 
-
-# Stable Rust
-
-The only possible way to use this crate on stable rust is to use the default feature flag, which means you can't use it in `no_std`
-environment or use it with `DST` (dynamic-sized type).
 
 # Unsized Type
 
-Once the feature `unsize` is enabled, sized `SmallBox<T>` can be coerced into `SmallBox<T: ?Sized>` if necessary.
+There are two ways to have an unsized `SmallBox`: Using `smallbox!()` macro or coercing from a sized `SmallBox` instance.
+
+Using the `smallbox!()` macro is the only option on stable rust. This macro will check the types of the expression and
+the expected type `T`. For any invalid type coersions, this macro invokes a compiler error.
+
+Once the feature `coerce` is enabled, sized `SmallBox<T>` can be coerced into `SmallBox<T: ?Sized>` if necessary.
 
 # Example
 
@@ -88,29 +87,44 @@ assert!(small.heaped() == false);
 assert!(large.heaped() == true);
 ```
 
-## DST
+## Unsized type
 
-The following examples requires `unsize` feature flag enabled.
+```rust
+#[macro_use]
+extern crate smallbox;
 
-Trait object dynamic-dispatch:
+use smallbox::SmallBox;
+use smallbox::space::*;
+
+let array: SmallBox<[usize], S2> = smallbox!([0usize, 1]);
+
+assert_eq!(array.len(), 2);
+assert_eq!(*array, [0, 1]);
+```
+
+With `coerce` feature:
 
 ```rust
 use smallbox::SmallBox;
-use smallbox::space::S1;
+use smallbox::space::*;
  
-let val: SmallBox<PartialEq<usize>, S1> = SmallBox::new(5usize);
- 
-assert!(*val == 5)
+let array: SmallBox<[usize], S2> = SmallBox::new([0usize, 1]);
+
+assert_eq!(array.len(), 2);
+assert_eq!(*array, [0, 1]);
 ```
 
 `Any` downcasting:
 
 ```rust
+#[macro_use]
+extern crate smallbox;
+
 use std::any::Any;
 use smallbox::SmallBox;
 use smallbox::space::S2;
 
-let num: SmallBox<Any, S2> = SmallBox::new(1234u32);
+let num: SmallBox<Any, S2> = smallbox!(1234u32);
 
 if let Some(num) = num.downcast_ref::<u32>() {
     assert_eq!(*num, 1234);
@@ -122,24 +136,13 @@ if let Some(num) = num.downcast_ref::<u32>() {
 
 # Capacity
 
-The capacity of `SmallBox<T, Space>` is expressed by the size of type parameter **`Space`**, 
-regardless of what the `Space` actually is.
+The capacity is expressed by the size of type parameter `Space`,
+regardless of what actually the `Space` is.
 
-This crate provides some spaces in module `smallbox::space`, 
+The crate provides some spaces in module `smallbox::space`,
 from `S1`, `S2`, `S4` to `S64`, representing `"n * usize"` spaces.
-
-Anyway, you can defind your own space type, 
+Anyway, you can defind your own space type
 such as a byte array `[u8; 64]`.
-
-The `resize()` method on `SmallBox` is used to change its capacity.
-
-```rust
-use smallbox::SmallBox;
-use smallbox::space::{S8, S16};
-
-let s: SmallBox::<_, S8> = SmallBox::new([0usize; 8]);
-let m: SmallBox<_, S16> = s.resize();
-```
 
 # Benchmark
 

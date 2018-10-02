@@ -11,20 +11,57 @@ use alloc::alloc::{self, Layout};
 #[cfg(feature = "std")]
 use std::alloc::{self, Layout};
 
-#[cfg(feature = "unsize")]
+#[cfg(feature = "coerce")]
 use std::marker::Unsize;
-#[cfg(feature = "unsize")]
+#[cfg(feature = "coerce")]
 use std::ops::CoerceUnsized;
 
-#[cfg(feature = "unsize")]
+#[cfg(feature = "coerce")]
 impl<T: ?Sized + Unsize<U>, U: ?Sized, Space> CoerceUnsized<SmallBox<U, Space>>
     for SmallBox<T, Space>
 {}
 
-#[cfg(all(feature = "heap", not(feature = "std")))]
-use alloc::boxed::Box;
+/// Box value on stack or heap depending on its size
+///
+/// This macro is similar to `SmallBox::new`, which is used to create a new `Smallbox` instance,
+/// but relaxing the constraint of `T: Sized`.
+/// In order to do that, this macro will check the coersion rules between type `T` and the
+/// expression type. This macro invokes a complier error for any invalid type coersion.
+/// 
+/// You can think that it has the signature of `smallbox!<U: Sized, T: ?Sized>(val: U) -> SmallBox<T, Space>`
+///
+/// # Example
+///
+/// ```
+/// #[macro_use]
+/// extern crate smallbox;
+///
+/// # fn main() {
+/// use smallbox::SmallBox;
+/// use smallbox::space::*;
+///
+/// let small: SmallBox<[usize], S4> = smallbox!([0usize; 2]);
+/// let large: SmallBox<[usize], S4> = smallbox!([1usize; 8]);
+///
+/// assert_eq!(small.len(), 2);
+/// assert_eq!(large[7], 1);
+///
+/// assert!(large.heaped() == true);
+/// # }
+/// ```
+#[macro_export]
+macro_rules! smallbox {
+    ( $e: expr ) => {{
+        let val = $e;
+        let ptr = &val as *const _;
+        #[allow(unsafe_code)]
+        unsafe {
+            $crate::SmallBox::new_unchecked(val, ptr)
+        }
+    }};
+}
 
-/// A box container that only stores item on stack
+/// An optimized box that store value on stack or heap depending on its size
 pub struct SmallBox<T: ?Sized, Space> {
     space: ManuallyDrop<Space>,
     ptr: *const T,
@@ -32,7 +69,7 @@ pub struct SmallBox<T: ?Sized, Space> {
 }
 
 impl<T: ?Sized, Space> SmallBox<T, Space> {
-    /// Box value on stack or heap depending on its size
+    /// Box value on stack or heap depending on its size.
     ///
     /// # Example
     ///
@@ -52,31 +89,42 @@ impl<T: ?Sized, Space> SmallBox<T, Space> {
     where
         T: Sized,
     {
-        unsafe {
-            let mut space = ManuallyDrop::new(mem::uninitialized::<Space>());
+        smallbox!(val)
+    }
 
-            let (ptr, ptr_copy): (*const T, *mut T) = if mem::size_of::<T>()
-                > mem::size_of::<Space>()
-                || mem::align_of::<T>() > mem::align_of::<Space>()
-            {
-                // Heap
-                let layout = Layout::new::<T>();
-                let heap_ptr = alloc::alloc(layout) as *mut T;
-                (heap_ptr, heap_ptr)
-            } else {
-                // Stack
-                (ptr::null(), mem::transmute(&mut space))
-            };
+    #[doc(hidden)]
+    pub unsafe fn new_unchecked<U>(val: U, ptr: *const T) -> SmallBox<T, Space>
+    where
+        U: Sized,
+    {
+        let mut space = ManuallyDrop::new(mem::uninitialized::<Space>());
 
-            ptr::copy_nonoverlapping(&val, ptr_copy, 1);
+        let (ptr_addr, ptr_copy): (*const u8, *mut U) = if mem::size_of::<U>()
+            > mem::size_of::<Space>()
+            || mem::align_of::<U>() > mem::align_of::<Space>()
+        {
+            // Heap
+            let layout = Layout::new::<U>();
+            let heap_ptr = alloc::alloc(layout);
 
-            mem::forget(val);
+            (heap_ptr, heap_ptr as *mut U)
+        } else {
+            // Stack
+            (ptr::null(), mem::transmute(&mut space))
+        };
 
-            SmallBox {
-                space,
-                ptr,
-                _phantom: PhantomData,
-            }
+        let mut ptr = ptr;
+        let ptr_ptr = &mut ptr as *mut _ as *mut usize;
+        ptr_ptr.write(ptr_addr as usize);
+
+        ptr::copy_nonoverlapping(&val, ptr_copy, 1);
+
+        mem::forget(val);
+
+        SmallBox {
+            space,
+            ptr,
+            _phantom: PhantomData,
         }
     }
 
@@ -262,11 +310,10 @@ unsafe impl<T: ?Sized + Sync, Space> Sync for SmallBox<T, Space> {}
 mod tests {
     use super::SmallBox;
     use space::*;
-    #[cfg(feature = "unsize")]
     use std::any::Any;
 
     #[test]
-    fn basic() {
+    fn test_basic() {
         let stacked: SmallBox<usize, S1> = SmallBox::new(1234usize);
         assert!(*stacked == 1234);
 
@@ -275,8 +322,52 @@ mod tests {
     }
 
     #[test]
-    #[cfg(feature = "unsize")]
-    fn test_downcast() {
+    fn test_new_unchecked() {
+        let val = [0usize, 1];
+        let ptr = &val as *const _;
+
+        unsafe {
+            let stacked: SmallBox<[usize], S2> = SmallBox::new_unchecked(val, ptr);
+            assert!(*stacked == [0, 1]);
+            assert!(!stacked.heaped());
+        }
+
+        let val = [0usize, 1, 2];
+        let ptr = &val as *const _;
+
+        unsafe {
+            let heaped: SmallBox<Any, S2> = SmallBox::new_unchecked(val, ptr);
+            assert!(heaped.heaped());
+
+            if let Some(array) = heaped.downcast_ref::<[usize; 3]>() {
+                assert_eq!(*array, [0, 1, 2]);
+            } else {
+                unreachable!();
+            }
+        }
+    }
+
+    #[test]
+    #[deny(unsafe_code)]
+    fn test_macro() {
+        let stacked: SmallBox<Any, S1> = smallbox!(1234usize);
+        if let Some(num) = stacked.downcast_ref::<usize>() {
+            assert_eq!(*num, 1234);
+        } else {
+            unreachable!();
+        }
+
+        let heaped: SmallBox<Any, S1> = smallbox!([0usize, 1]);
+        if let Some(array) = heaped.downcast_ref::<[usize; 2]>() {
+            assert_eq!(*array, [0, 1]);
+        } else {
+            unreachable!();
+        }
+    }
+
+    #[test]
+    #[cfg(feature = "coerce")]
+    fn test_coerce() {
         let stacked: SmallBox<Any, S1> = SmallBox::new(1234usize);
         if let Some(num) = stacked.downcast_ref::<usize>() {
             assert_eq!(*num, 1234);

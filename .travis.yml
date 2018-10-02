@@ -6,5 +6,5 @@ rust:
 script:
   - cargo test --verbose
   - cargo test --verbose --no-default-features
-  - cargo test --verbose --features "unsize"
-  - cargo test --verbose --no-default-features --features "unsize"
+  - cargo test --verbose --features "coerce"
+  - cargo test --verbose --no-default-features --features "coerce"

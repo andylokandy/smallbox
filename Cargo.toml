@@ -11,4 +11,4 @@ license = "MIT"
 [features]
 default = ["std"]
 std = []
-unsize = []
+coerce = []
