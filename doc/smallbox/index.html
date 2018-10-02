@@ -1,8 +1,8 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="API documentation for the Rust `smallbox` crate."><meta name="keywords" content="rust, rustlang, rust-lang, smallbox"><title>smallbox - Rust</title><link rel="stylesheet" type="text/css" href="../normalize.css"><link rel="stylesheet" type="text/css" href="../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../dark.css"><link rel="stylesheet" type="text/css" href="../light.css" id="themeStyle"><script src="../storage.js"></script></head><body class="rustdoc mod"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div><p class='location'>Crate smallbox</p><div class="sidebar-elems"><div class="block items"><ul><li><a href="#modules">Modules</a></li><li><a href="#structs">Structs</a></li></ul></div><p class='location'></p><script>window.sidebarCurrent = {name: 'smallbox', ty: 'mod', relpath: '../'};</script></div></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!"><img src="../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices"></div></div><script src="../theme.js"></script><nav class="sub"><form class="search-form js-only"><div class="search-container"><input class="search-input" name="search" autocomplete="off" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><a id="settings-menu" href="../settings.html"><img src="../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><h1 class='fqn'><span class='out-of-band'><span id='render-detail'><a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">[<span class='inner'>&#x2212;</span>]</a></span><a class='srclink' href='../src/smallbox/lib.rs.html#1-164' title='goto source code'>[src]</a></span><span class='in-band'>Crate <a class="mod" href=''>smallbox</a></span></h1><div class='docblock'><p><code>Small Box</code> optimization: store small item on the stack or fallback to heap for large item.</p>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="API documentation for the Rust `smallbox` crate."><meta name="keywords" content="rust, rustlang, rust-lang, smallbox"><title>smallbox - Rust</title><link rel="stylesheet" type="text/css" href="../normalize.css"><link rel="stylesheet" type="text/css" href="../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../dark.css"><link rel="stylesheet" type="text/css" href="../light.css" id="themeStyle"><script src="../storage.js"></script></head><body class="rustdoc mod"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div><p class='location'>Crate smallbox</p><div class="sidebar-elems"><div class="block items"><ul><li><a href="#modules">Modules</a></li><li><a href="#macros">Macros</a></li><li><a href="#structs">Structs</a></li></ul></div><p class='location'></p><script>window.sidebarCurrent = {name: 'smallbox', ty: 'mod', relpath: '../'};</script></div></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!"><img src="../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices"></div></div><script src="../theme.js"></script><nav class="sub"><form class="search-form js-only"><div class="search-container"><input class="search-input" name="search" autocomplete="off" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><a id="settings-menu" href="../settings.html"><img src="../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><h1 class='fqn'><span class='out-of-band'><span id='render-detail'><a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">[<span class='inner'>&#x2212;</span>]</a></span><a class='srclink' href='../src/smallbox/lib.rs.html#1-158' title='goto source code'>[src]</a></span><span class='in-band'>Crate <a class="mod" href=''>smallbox</a></span></h1><div class='docblock'><p><code>Small Box</code> optimization: store small item on the stack or fallback to heap for large item.</p>
 <h1 id="usage" class="section-header"><a href="#usage">Usage</a></h1>
 <p>First, add the following to your <code>Cargo.toml</code>:</p>
 <pre><code class="language-toml">[dependencies]
-smallbox = &quot;0.6&quot;
+smallbox = &quot;0.7&quot;
 </code></pre>
 <p>Next, add this to your crate root:</p>
 
@@ -10,21 +10,13 @@ smallbox = &quot;0.6&quot;
 <span class="kw">extern</span> <span class="kw">crate</span> <span class="ident">smallbox</span>;</pre>
 <p>If you want this crate to work with dynamic-sized type, you can request it via:</p>
 <pre><code class="language-toml">[dependencies]
-smallbox = { version = &quot;0.6&quot;, features = [&quot;unsize&quot;] }
+smallbox = { version = &quot;0.7&quot;, features = [&quot;coerce&quot;] }
 </code></pre>
 <p>Currently <code>smallbox</code> by default links to the standard library, but if you would
-instead like to use this crate in a <code>#![no_std]</code> situation or crate, and want to
-opt out heap dependency and <code>SmallBox&lt;T&gt;</code> type, you can request this via:</p>
+instead like to use this crate in a <code>#![no_std]</code> situation or crate, you can request this via:</p>
 <pre><code class="language-toml">[dependencies.smallbox]
-version = &quot;0.6&quot;
-features = [&quot;unsize&quot;]
-default-features = false
-</code></pre>
-<p>Enable <code>heap</code> feature for <code>#![no_std]</code> build to link to <code>alloc</code> crate
-and bring <code>SmallBox&lt;T&gt;</code> back.</p>
-<pre><code class="language-toml">[dependencies.smallbox]
-version = &quot;0.6&quot;
-features = [&quot;unsize&quot;, &quot;heap&quot;]
+version = &quot;0.7&quot;
+features = [&quot;coerce&quot;]
 default-features = false
 </code></pre>
 <h1 id="feature-flags" class="section-header"><a href="#feature-flags">Feature Flags</a></h1>
@@ -36,23 +28,23 @@ default-features = false
 <li>Optional, enabled by default</li>
 <li>Use libstd</li>
 <li>If <code>std</code> feature flag is opted out, <code>alloc</code> crate
-will be linked, which would require nightly rust.</li>
+will be linked, which requires nightly rust.</li>
 </ul>
 </li>
 <li>
-<p><code>unsize</code></p>
+<p><code>coerce</code></p>
 <ul>
 <li>Optional</li>
 <li>Require nightly rust</li>
-<li>Enable support for <code>DST</code> (dynamic-sized type).</li>
+<li>Allow automatic coersion from sized <code>SmallBox</code> to unsized <code>SmallBox</code>.</li>
 </ul>
 </li>
 </ul>
-<h1 id="stable-rust" class="section-header"><a href="#stable-rust">Stable Rust</a></h1>
-<p>The only possible way to use this crate on stable rust is to use the default feature flag, which means you can't use it in <code>no_std</code>
-environment or use it with <code>DST</code> (dynamic-sized type).</p>
 <h1 id="unsized-type" class="section-header"><a href="#unsized-type">Unsized Type</a></h1>
-<p>Once the feature <code>unsize</code> is enabled, sized <code>SmallBox&lt;T&gt;</code> can be coerced into <code>SmallBox&lt;T: ?Sized&gt;</code> if necessary.</p>
+<p>There are two ways to have an unsized <code>SmallBox</code>: Using <code>smallbox!()</code> macro or coercing from a sized <code>SmallBox</code> instance.</p>
+<p>Using the <code>smallbox!()</code> macro is the only option on stable rust. This macro will check the types of the expression and
+the expected type <code>T</code>. For any invalid type coersions, this macro invokes a compiler error.</p>
+<p>Once the feature <code>coerce</code> is enabled, sized <code>SmallBox&lt;T&gt;</code> can be coerced into <code>SmallBox&lt;T: ?Sized&gt;</code> if necessary.</p>
 <h1 id="example" class="section-header"><a href="#example">Example</a></h1>
 <p>Eliminate heap alloction for small items by <code>SmallBox</code>:</p>
 
@@ -65,31 +57,45 @@ environment or use it with <code>DST</code> (dynamic-sized type).</p>
 
 <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">small</span>.<span class="ident">len</span>(), <span class="number">2</span>);
 <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">large</span>.<span class="ident">len</span>(), <span class="number">32</span>);
- 
+
 <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="kw-2">*</span><span class="ident">small</span>, [<span class="number">0</span>; <span class="number">2</span>]);
 <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="kw-2">*</span><span class="ident">large</span>, [<span class="number">0</span>; <span class="number">32</span>]);
- 
+
 <span class="macro">assert</span><span class="macro">!</span>(<span class="ident">small</span>.<span class="ident">heaped</span>() <span class="op">==</span> <span class="bool-val">false</span>);
 <span class="macro">assert</span><span class="macro">!</span>(<span class="ident">large</span>.<span class="ident">heaped</span>() <span class="op">==</span> <span class="bool-val">true</span>);</pre>
-<h2 id="dst" class="section-header"><a href="#dst">DST</a></h2>
-<p>The following examples requires <code>unsize</code> feature flag enabled.</p>
-<p>Trait object dynamic-dispatch:</p>
+<h2 id="unsized-type-1" class="section-header"><a href="#unsized-type-1">Unsized type</a></h2>
+<pre class="rust rust-example-rendered">
+<span class="attribute">#[<span class="ident">macro_use</span>]</span>
+<span class="kw">extern</span> <span class="kw">crate</span> <span class="ident">smallbox</span>;
+
+<span class="kw">use</span> <span class="ident">smallbox</span>::<span class="ident">SmallBox</span>;
+<span class="kw">use</span> <span class="ident">smallbox</span>::<span class="ident">space</span>::<span class="kw-2">*</span>;
+
+<span class="kw">let</span> <span class="ident">array</span>: <span class="ident">SmallBox</span><span class="op">&lt;</span>[<span class="ident">usize</span>], <span class="ident">S2</span><span class="op">&gt;</span> <span class="op">=</span> <span class="macro">smallbox</span><span class="macro">!</span>([<span class="number">0usize</span>, <span class="number">1</span>]);
+
+<span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">array</span>.<span class="ident">len</span>(), <span class="number">2</span>);
+<span class="macro">assert_eq</span><span class="macro">!</span>(<span class="kw-2">*</span><span class="ident">array</span>, [<span class="number">0</span>, <span class="number">1</span>]);</pre>
+<p>With <code>coerce</code> feature:</p>
 
 <pre class="rust rust-example-rendered">
 <span class="kw">use</span> <span class="ident">smallbox</span>::<span class="ident">SmallBox</span>;
-<span class="kw">use</span> <span class="ident">smallbox</span>::<span class="ident">space</span>::<span class="ident">S1</span>;
+<span class="kw">use</span> <span class="ident">smallbox</span>::<span class="ident">space</span>::<span class="kw-2">*</span>;
   
-<span class="kw">let</span> <span class="ident">val</span>: <span class="ident">SmallBox</span><span class="op">&lt;</span><span class="ident">PartialEq</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span>, <span class="ident">S1</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">SmallBox</span>::<span class="ident">new</span>(<span class="number">5usize</span>);
-  
-<span class="macro">assert</span><span class="macro">!</span>(<span class="kw-2">*</span><span class="ident">val</span> <span class="op">==</span> <span class="number">5</span>)</pre>
+<span class="kw">let</span> <span class="ident">array</span>: <span class="ident">SmallBox</span><span class="op">&lt;</span>[<span class="ident">usize</span>], <span class="ident">S2</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">SmallBox</span>::<span class="ident">new</span>([<span class="number">0usize</span>, <span class="number">1</span>]);
+
+<span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">array</span>.<span class="ident">len</span>(), <span class="number">2</span>);
+<span class="macro">assert_eq</span><span class="macro">!</span>(<span class="kw-2">*</span><span class="ident">array</span>, [<span class="number">0</span>, <span class="number">1</span>]);</pre>
 <p><code>Any</code> downcasting:</p>
 
 <pre class="rust rust-example-rendered">
+<span class="attribute">#[<span class="ident">macro_use</span>]</span>
+<span class="kw">extern</span> <span class="kw">crate</span> <span class="ident">smallbox</span>;
+
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">any</span>::<span class="ident">Any</span>;
 <span class="kw">use</span> <span class="ident">smallbox</span>::<span class="ident">SmallBox</span>;
 <span class="kw">use</span> <span class="ident">smallbox</span>::<span class="ident">space</span>::<span class="ident">S2</span>;
 
-<span class="kw">let</span> <span class="ident">num</span>: <span class="ident">SmallBox</span><span class="op">&lt;</span><span class="ident">Any</span>, <span class="ident">S2</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">SmallBox</span>::<span class="ident">new</span>(<span class="number">1234u32</span>);
+<span class="kw">let</span> <span class="ident">num</span>: <span class="ident">SmallBox</span><span class="op">&lt;</span><span class="ident">Any</span>, <span class="ident">S2</span><span class="op">&gt;</span> <span class="op">=</span> <span class="macro">smallbox</span><span class="macro">!</span>(<span class="number">1234u32</span>);
 
 <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">num</span>) <span class="op">=</span> <span class="ident">num</span>.<span class="ident">downcast_ref</span>::<span class="op">&lt;</span><span class="ident">u32</span><span class="op">&gt;</span>() {
     <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="kw-2">*</span><span class="ident">num</span>, <span class="number">1234</span>);
@@ -97,20 +103,12 @@ environment or use it with <code>DST</code> (dynamic-sized type).</p>
     <span class="macro">unreachable</span><span class="macro">!</span>();
 }</pre>
 <h1 id="capacity" class="section-header"><a href="#capacity">Capacity</a></h1>
-<p>The capacity of <code>SmallBox&lt;T, Space&gt;</code> is expressed by the size of type parameter <strong><code>Space</code></strong>,
-regardless of what the <code>Space</code> actually is.</p>
-<p>This crate provides some spaces in module <code>smallbox::space</code>,
-from <code>S1</code>, <code>S2</code>, <code>S4</code> to <code>S64</code>, representing <code>&quot;n * usize&quot;</code> spaces.</p>
-<p>Anyway, you can defind your own space type,
+<p>The capacity is expressed by the size of type parameter <code>Space</code>,
+regardless of what actually the <code>Space</code> is.</p>
+<p>The crate provides some spaces in module <code>smallbox::space</code>,
+from <code>S1</code>, <code>S2</code>, <code>S4</code> to <code>S64</code>, representing <code>&quot;n * usize&quot;</code> spaces.
+Anyway, you can defind your own space type
 such as a byte array <code>[u8; 64]</code>.</p>
-<p>The <code>resize()</code> method on <code>SmallBox</code> is used to change its capacity.</p>
-
-<pre class="rust rust-example-rendered">
-<span class="kw">use</span> <span class="ident">smallbox</span>::<span class="ident">SmallBox</span>;
-<span class="kw">use</span> <span class="ident">smallbox</span>::<span class="ident">space</span>::{<span class="ident">S8</span>, <span class="ident">S16</span>};
-
-<span class="kw">let</span> <span class="ident">s</span>: <span class="ident">SmallBox</span>::<span class="op">&lt;</span><span class="kw">_</span>, <span class="ident">S8</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">SmallBox</span>::<span class="ident">new</span>([<span class="number">0usize</span>; <span class="number">8</span>]);
-<span class="kw">let</span> <span class="ident">m</span>: <span class="ident">SmallBox</span><span class="op">&lt;</span><span class="kw">_</span>, <span class="ident">S16</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">s</span>.<span class="ident">resize</span>();</pre>
 </div><h2 id='modules' class='section-header'><a href="#modules">Modules</a></h2>
 <table>
                        <tr class=' module-item'>
@@ -120,13 +118,22 @@ such as a byte array <code>[u8; 64]</code>.</p>
                                 <p>Space types that used to define capacity</p>
 
                            </td>
+                       </tr></table><h2 id='macros' class='section-header'><a href="#macros">Macros</a></h2>
+<table>
+                       <tr class=' module-item'>
+                           <td><a class="macro" href="macro.smallbox.html"
+                                  title='macro smallbox::smallbox'>smallbox</a></td>
+                           <td class='docblock-short'>
+                                <p>Box value on stack or heap depending on its size</p>
+
+                           </td>
                        </tr></table><h2 id='structs' class='section-header'><a href="#structs">Structs</a></h2>
 <table>
                        <tr class=' module-item'>
                            <td><a class="struct" href="struct.SmallBox.html"
                                   title='struct smallbox::SmallBox'>SmallBox</a></td>
                            <td class='docblock-short'>
-                                <p>A box container that only stores item on stack</p>
+                                <p>An optimized box that store value on stack or heap depending on its size</p>
 
                            </td>
                        </tr></table></section><section id="search" class="content hidden"></section><section class="footer"></section><aside id="help" class="hidden"><div><h1 class="hidden">Help</h1><div class="shortcuts"><h2>Keyboard Shortcuts</h2><dl><dt><kbd>?</kbd></dt><dd>Show this help dialog</dd><dt><kbd>S</kbd></dt><dd>Focus the search field</dd><dt><kbd>↑</kbd></dt><dd>Move up in search results</dd><dt><kbd>↓</kbd></dt><dd>Move down in search results</dd><dt><kbd>↹</kbd></dt><dd>Switch tab</dd><dt><kbd>&#9166;</kbd></dt><dd>Go to active search result</dd><dt><kbd>+</kbd></dt><dd>Expand all sections</dd><dt><kbd>-</kbd></dt><dd>Collapse all sections</dd></dl></div><div class="infos"><h2>Search Tricks</h2><p>Prefix searches with a type followed by a colon (e.g. <code>fn:</code>) to restrict the search to a given type.</p><p>Accepted types are: <code>fn</code>, <code>mod</code>, <code>struct</code>, <code>enum</code>, <code>trait</code>, <code>type</code>, <code>macro</code>, and <code>const</code>.</p><p>Search functions by type signature (e.g. <code>vec -> usize</code> or <code>* -> vec</code>)</p><p>Search multiple things at once by splitting your query with comma (e.g. <code>str,u8</code> or <code>String,struct:Vec,test</code>)</p></div></div></aside><script>window.rootPath = "../";window.currentCrate = "smallbox";</script><script src="../aliases.js"></script><script src="../main.js"></script><script defer src="../search-index.js"></script></body></html>

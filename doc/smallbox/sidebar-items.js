@@ -1,1 +1,1 @@
-initSidebarItems({"mod":[["space","Space types that used to define capacity"]],"struct":[["SmallBox","A box container that only stores item on stack"]]});
+initSidebarItems({"macro":[["smallbox","Box value on stack or heap depending on its size"]],"mod":[["space","Space types that used to define capacity"]],"struct":[["SmallBox","An optimized box that store value on stack or heap depending on its size"]]});

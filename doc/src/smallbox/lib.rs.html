@@ -156,12 +156,6 @@
 <span id="156">156</span>
 <span id="157">157</span>
 <span id="158">158</span>
-<span id="159">159</span>
-<span id="160">160</span>
-<span id="161">161</span>
-<span id="162">162</span>
-<span id="163">163</span>
-<span id="164">164</span>
 </pre><pre class="rust ">
 <span class="doccomment">//! `Small Box` optimization: store small item on the stack or fallback to heap for large item.</span>
 <span class="doccomment">//!</span>
@@ -171,7 +165,7 @@
 <span class="doccomment">//!</span>
 <span class="doccomment">//! ```toml</span>
 <span class="doccomment">//! [dependencies]</span>
-<span class="doccomment">//! smallbox = &quot;0.6&quot;</span>
+<span class="doccomment">//! smallbox = &quot;0.7&quot;</span>
 <span class="doccomment">//! ```</span>
 <span class="doccomment">//!</span>
 <span class="doccomment">//! Next, add this to your crate root:</span>
@@ -184,31 +178,20 @@
 <span class="doccomment">//!</span>
 <span class="doccomment">//! ```toml</span>
 <span class="doccomment">//! [dependencies]</span>
-<span class="doccomment">//! smallbox = { version = &quot;0.6&quot;, features = [&quot;unsize&quot;] }</span>
+<span class="doccomment">//! smallbox = { version = &quot;0.7&quot;, features = [&quot;coerce&quot;] }</span>
 <span class="doccomment">//! ```</span>
 <span class="doccomment">//!</span>
 <span class="doccomment">//! Currently `smallbox` by default links to the standard library, but if you would</span>
-<span class="doccomment">//! instead like to use this crate in a `#![no_std]` situation or crate, and want to</span>
-<span class="doccomment">//! opt out heap dependency and `SmallBox&lt;T&gt;` type, you can request this via:</span>
+<span class="doccomment">//! instead like to use this crate in a `#![no_std]` situation or crate, you can request this via:</span>
 <span class="doccomment">//!</span>
 <span class="doccomment">//! ```toml</span>
 <span class="doccomment">//! [dependencies.smallbox]</span>
-<span class="doccomment">//! version = &quot;0.6&quot;</span>
-<span class="doccomment">//! features = [&quot;unsize&quot;]</span>
+<span class="doccomment">//! version = &quot;0.7&quot;</span>
+<span class="doccomment">//! features = [&quot;coerce&quot;]</span>
 <span class="doccomment">//! default-features = false</span>
 <span class="doccomment">//! ```</span>
 <span class="doccomment">//!</span>
-<span class="doccomment">//! Enable `heap` feature for `#![no_std]` build to link to `alloc` crate</span>
-<span class="doccomment">//! and bring `SmallBox&lt;T&gt;` back.</span>
 <span class="doccomment">//!</span>
-<span class="doccomment">//! ```toml</span>
-<span class="doccomment">//! [dependencies.smallbox]</span>
-<span class="doccomment">//! version = &quot;0.6&quot;</span>
-<span class="doccomment">//! features = [&quot;unsize&quot;, &quot;heap&quot;]</span>
-<span class="doccomment">//! default-features = false</span>
-<span class="doccomment">//! ```</span>
-<span class="doccomment">//!</span>
-<span class="doccomment">//! </span>
 <span class="doccomment">//! # Feature Flags</span>
 <span class="doccomment">//!</span>
 <span class="doccomment">//! This crate has the following cargo feature flags:</span>
@@ -217,22 +200,22 @@
 <span class="doccomment">//!   - Optional, enabled by default</span>
 <span class="doccomment">//!   - Use libstd</span>
 <span class="doccomment">//!   - If `std` feature flag is opted out, `alloc` crate</span>
-<span class="doccomment">//!     will be linked, which would require nightly rust.</span>
+<span class="doccomment">//!     will be linked, which requires nightly rust.</span>
 <span class="doccomment">//!</span>
-<span class="doccomment">//! - `unsize`</span>
+<span class="doccomment">//! - `coerce`</span>
 <span class="doccomment">//!   - Optional</span>
 <span class="doccomment">//!   - Require nightly rust</span>
-<span class="doccomment">//!   - Enable support for `DST` (dynamic-sized type).</span>
-<span class="doccomment">//!</span>
-<span class="doccomment">//!</span>
-<span class="doccomment">//! # Stable Rust</span>
-<span class="doccomment">//!</span>
-<span class="doccomment">//! The only possible way to use this crate on stable rust is to use the default feature flag, which means you can&#39;t use it in `no_std`</span>
-<span class="doccomment">//! environment or use it with `DST` (dynamic-sized type).</span>
+<span class="doccomment">//!   - Allow automatic coersion from sized `SmallBox` to unsized `SmallBox`.</span>
+<span class="doccomment">//! </span>
 <span class="doccomment">//!</span>
 <span class="doccomment">//! # Unsized Type</span>
 <span class="doccomment">//!</span>
-<span class="doccomment">//! Once the feature `unsize` is enabled, sized `SmallBox&lt;T&gt;` can be coerced into `SmallBox&lt;T: ?Sized&gt;` if necessary.</span>
+<span class="doccomment">//! There are two ways to have an unsized `SmallBox`: Using `smallbox!()` macro or coercing from a sized `SmallBox` instance.</span>
+<span class="doccomment">//! </span>
+<span class="doccomment">//! Using the `smallbox!()` macro is the only option on stable rust. This macro will check the types of the expression and</span>
+<span class="doccomment">//! the expected type `T`. For any invalid type coersions, this macro invokes a compiler error.</span>
+<span class="doccomment">//! </span>
+<span class="doccomment">//! Once the feature `coerce` is enabled, sized `SmallBox&lt;T&gt;` can be coerced into `SmallBox&lt;T: ?Sized&gt;` if necessary.</span>
 <span class="doccomment">//!</span>
 <span class="doccomment">//! # Example</span>
 <span class="doccomment">//!</span>
@@ -247,42 +230,58 @@
 <span class="doccomment">//!</span>
 <span class="doccomment">//! assert_eq!(small.len(), 2);</span>
 <span class="doccomment">//! assert_eq!(large.len(), 32);</span>
-<span class="doccomment">//! </span>
+<span class="doccomment">//!</span>
 <span class="doccomment">//! assert_eq!(*small, [0; 2]);</span>
 <span class="doccomment">//! assert_eq!(*large, [0; 32]);</span>
-<span class="doccomment">//! </span>
+<span class="doccomment">//!</span>
 <span class="doccomment">//! assert!(small.heaped() == false);</span>
 <span class="doccomment">//! assert!(large.heaped() == true);</span>
 <span class="doccomment">//! ```</span>
 <span class="doccomment">//!</span>
-<span class="doccomment">//! ## DST</span>
-<span class="doccomment">//!</span>
-<span class="doccomment">//! The following examples requires `unsize` feature flag enabled.</span>
-<span class="doccomment">//!</span>
-<span class="doccomment">//! Trait object dynamic-dispatch:</span>
-<span class="doccomment">//!</span>
+<span class="doccomment">//! ## Unsized type</span>
+<span class="doccomment">//! </span>
 <span class="doccomment">//! ```rust</span>
-<span class="doccomment">//! # #[cfg(feature = &quot;unsize&quot;)]</span>
+<span class="doccomment">//! #[macro_use]</span>
+<span class="doccomment">//! extern crate smallbox;</span>
+<span class="doccomment">//!</span>
+<span class="doccomment">//! # fn main() {</span>
+<span class="doccomment">//! use smallbox::SmallBox;</span>
+<span class="doccomment">//! use smallbox::space::*;</span>
+<span class="doccomment">//!</span>
+<span class="doccomment">//! let array: SmallBox&lt;[usize], S2&gt; = smallbox!([0usize, 1]);</span>
+<span class="doccomment">//!</span>
+<span class="doccomment">//! assert_eq!(array.len(), 2);</span>
+<span class="doccomment">//! assert_eq!(*array, [0, 1]);</span>
+<span class="doccomment">//! # }</span>
+<span class="doccomment">//! ```</span>
+<span class="doccomment">//! </span>
+<span class="doccomment">//! With `coerce` feature:</span>
+<span class="doccomment">//! </span>
+<span class="doccomment">//! ```rust</span>
+<span class="doccomment">//! # #[cfg(feature = &quot;coerce&quot;)]</span>
 <span class="doccomment">//! # {</span>
 <span class="doccomment">//! use smallbox::SmallBox;</span>
-<span class="doccomment">//! use smallbox::space::S1;</span>
+<span class="doccomment">//! use smallbox::space::*;</span>
 <span class="doccomment">//!  </span>
-<span class="doccomment">//! let val: SmallBox&lt;PartialEq&lt;usize&gt;, S1&gt; = SmallBox::new(5usize);</span>
-<span class="doccomment">//!  </span>
-<span class="doccomment">//! assert!(*val == 5)</span>
+<span class="doccomment">//! let array: SmallBox&lt;[usize], S2&gt; = SmallBox::new([0usize, 1]);</span>
+<span class="doccomment">//!</span>
+<span class="doccomment">//! assert_eq!(array.len(), 2);</span>
+<span class="doccomment">//! assert_eq!(*array, [0, 1]);</span>
 <span class="doccomment">//! # }</span>
 <span class="doccomment">//! ```</span>
 <span class="doccomment">//!</span>
 <span class="doccomment">//! `Any` downcasting:</span>
 <span class="doccomment">//!</span>
 <span class="doccomment">//! ```rust</span>
-<span class="doccomment">//! # #[cfg(feature = &quot;unsize&quot;)]</span>
-<span class="doccomment">//! # {</span>
+<span class="doccomment">//! #[macro_use]</span>
+<span class="doccomment">//! extern crate smallbox;</span>
+<span class="doccomment">//!</span>
+<span class="doccomment">//! # fn main() {</span>
 <span class="doccomment">//! use std::any::Any;</span>
 <span class="doccomment">//! use smallbox::SmallBox;</span>
 <span class="doccomment">//! use smallbox::space::S2;</span>
 <span class="doccomment">//!</span>
-<span class="doccomment">//! let num: SmallBox&lt;Any, S2&gt; = SmallBox::new(1234u32);</span>
+<span class="doccomment">//! let num: SmallBox&lt;Any, S2&gt; = smallbox!(1234u32);</span>
 <span class="doccomment">//!</span>
 <span class="doccomment">//! if let Some(num) = num.downcast_ref::&lt;u32&gt;() {</span>
 <span class="doccomment">//!     assert_eq!(*num, 1234);</span>
@@ -294,27 +293,16 @@
 <span class="doccomment">//!</span>
 <span class="doccomment">//!</span>
 <span class="doccomment">//! # Capacity</span>
-<span class="doccomment">//! </span>
-<span class="doccomment">//! The capacity of `SmallBox&lt;T, Space&gt;` is expressed by the size of type parameter **`Space`**, </span>
-<span class="doccomment">//! regardless of what the `Space` actually is.</span>
 <span class="doccomment">//!</span>
-<span class="doccomment">//! This crate provides some spaces in module `smallbox::space`, </span>
+<span class="doccomment">//! The capacity is expressed by the size of type parameter `Space`,</span>
+<span class="doccomment">//! regardless of what actually the `Space` is.</span>
+<span class="doccomment">//!</span>
+<span class="doccomment">//! The crate provides some spaces in module `smallbox::space`,</span>
 <span class="doccomment">//! from `S1`, `S2`, `S4` to `S64`, representing `&quot;n * usize&quot;` spaces.</span>
-<span class="doccomment">//!</span>
-<span class="doccomment">//! Anyway, you can defind your own space type, </span>
+<span class="doccomment">//! Anyway, you can defind your own space type</span>
 <span class="doccomment">//! such as a byte array `[u8; 64]`.</span>
-<span class="doccomment">//!</span>
-<span class="doccomment">//! The `resize()` method on `SmallBox` is used to change its capacity.</span>
-<span class="doccomment">//!</span>
-<span class="doccomment">//! ```rust</span>
-<span class="doccomment">//! use smallbox::SmallBox;</span>
-<span class="doccomment">//! use smallbox::space::{S8, S16};</span>
-<span class="doccomment">//!</span>
-<span class="doccomment">//! let s: SmallBox::&lt;_, S8&gt; = SmallBox::new([0usize; 8]);</span>
-<span class="doccomment">//! let m: SmallBox&lt;_, S16&gt; = s.resize();</span>
-<span class="doccomment">//! ```</span>
 
-<span class="attribute">#![<span class="ident">cfg_attr</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;unsize&quot;</span>, <span class="ident">feature</span>(<span class="ident">unsize</span>, <span class="ident">coerce_unsized</span>))]</span>
+<span class="attribute">#![<span class="ident">cfg_attr</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;coerce&quot;</span>, <span class="ident">feature</span>(<span class="ident">unsize</span>, <span class="ident">coerce_unsized</span>))]</span>
 <span class="attribute">#![<span class="ident">cfg_attr</span>(<span class="ident">all</span>(<span class="ident">not</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;std&quot;</span>), <span class="ident">doctest</span>), <span class="ident">no_std</span>)]</span>
 <span class="attribute">#![<span class="ident">cfg_attr</span>(<span class="ident">not</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;std&quot;</span>), <span class="ident">feature</span>(<span class="ident">alloc</span>))]</span>
 
