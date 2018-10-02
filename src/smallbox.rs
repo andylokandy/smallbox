@@ -97,17 +97,26 @@ impl<T: ?Sized, Space> SmallBox<T, Space> {
     where
         U: Sized,
     {
+        let result = Self::new_copy(&val, ptr);
+        mem::forget(val);
+        result
+    }
+
+    unsafe fn new_copy<U>(val: &U, ptr: *const T) -> SmallBox<T, Space>
+    where
+        U: ?Sized,
+    {
         let mut space = ManuallyDrop::new(mem::uninitialized::<Space>());
 
-        let (ptr_addr, ptr_copy): (*const u8, *mut U) = if mem::size_of::<U>()
+        let (ptr_addr, ptr_copy): (*const u8, *mut u8) = if mem::size_of_val::<U>(val)
             > mem::size_of::<Space>()
-            || mem::align_of::<U>() > mem::align_of::<Space>()
+            || mem::align_of_val::<U>(val) > mem::align_of::<Space>()
         {
             // Heap
-            let layout = Layout::new::<U>();
+            let layout = Layout::for_value::<U>(val);
             let heap_ptr = alloc::alloc(layout);
 
-            (heap_ptr, heap_ptr as *mut U)
+            (heap_ptr, heap_ptr)
         } else {
             // Stack
             (ptr::null(), mem::transmute(&mut space))
@@ -117,9 +126,11 @@ impl<T: ?Sized, Space> SmallBox<T, Space> {
         let ptr_ptr = &mut ptr as *mut _ as *mut usize;
         ptr_ptr.write(ptr_addr as usize);
 
-        ptr::copy_nonoverlapping(&val, ptr_copy, 1);
-
-        mem::forget(val);
+        ptr::copy_nonoverlapping(
+            val as *const _ as *const u8,
+            ptr_copy,
+            mem::size_of_val::<U>(val),
+        );
 
         SmallBox {
             space,
@@ -145,48 +156,22 @@ impl<T: ?Sized, Space> SmallBox<T, Space> {
     /// ```
     pub fn resize<ToSpace>(self) -> SmallBox<T, ToSpace> {
         unsafe {
-            let mut space = ManuallyDrop::new(mem::uninitialized::<ToSpace>());
-
-            let ptr = if self.is_heap() {
+            let result = if self.is_heap() {
                 // don't touch anything if the data is already on heap
-                self.ptr
+                let mut space = ManuallyDrop::new(mem::uninitialized::<ToSpace>());
+                SmallBox {
+                    space,
+                    ptr: self.ptr,
+                    _phantom: PhantomData,
+                }
             } else {
-                let ptr: &T = &*self;
-                // original data is on stack
-                let (ptr, ptr_copy): (*const T, *mut u8) = if mem::size_of_val::<T>(ptr)
-                    > mem::size_of::<ToSpace>()
-                    || mem::align_of_val::<T>(ptr) > mem::align_of::<ToSpace>()
-                {
-                    // but we have to move it to heap
-                    let layout = Layout::for_value::<T>(ptr);
-                    let heap_ptr = alloc::alloc(layout) as *mut u8;
-
-                    let mut ptr: *const T = ptr;
-                    let ptr_ptr = &mut ptr as *mut _ as *mut usize;
-                    ptr_ptr.write(heap_ptr as usize);
-
-                    (ptr, heap_ptr)
-                } else {
-                    // still store it on stack
-                    (self.ptr, mem::transmute(&mut space))
-                };
-
-                ptr::copy_nonoverlapping(
-                    &self.space as *const _ as *const u8,
-                    ptr_copy,
-                    mem::size_of_val::<T>(&*self),
-                );
-
-                ptr
+                let val: &T = &*self;
+                SmallBox::<T, ToSpace>::new_copy(val, val as *const T)
             };
 
             mem::forget(self);
 
-            SmallBox {
-                space,
-                ptr,
-                _phantom: PhantomData,
-            }
+            result
         }
     }
 
@@ -230,6 +215,16 @@ impl<T: ?Sized, Space> ops::Drop for SmallBox<T, Space> {
                 alloc::dealloc(self.ptr as *mut u8, layout);
             }
         }
+    }
+}
+
+impl<T: Clone, Space> Clone for SmallBox<T, Space>
+where
+    T: Sized,
+{
+    fn clone(&self) -> Self {
+        let val: &T = &*self;
+        SmallBox::new(val.clone())
     }
 }
 
@@ -391,7 +386,7 @@ mod tests {
     fn test_drop() {
         use std::cell::Cell;
 
-        #[derive(Debug)]
+        #[derive(Debug, Clone)]
         struct Struct<'a>(&'a Cell<bool>);
         impl<'a> Drop for Struct<'a> {
             fn drop(&mut self) {
@@ -400,10 +395,9 @@ mod tests {
         }
 
         let flag = Cell::new(false);
-
         let val: SmallBox<_, S2> = SmallBox::new(Struct(&flag));
-
         assert!(flag.get() == false);
+
         drop(val);
         assert!(flag.get() == true);
     }
@@ -441,6 +435,12 @@ mod tests {
         assert!(xs.is_heap());
         let m = xs.resize::<S4>();
         assert!(m.is_heap());
+    }
+
+    #[test]
+    fn test_clone() {
+        let stacked: SmallBox<[usize; 2], S2> = smallbox!([0usize, 1]);
+        assert_eq!(stacked, stacked.clone())
     }
 
     #[test]
