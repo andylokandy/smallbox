@@ -147,18 +147,21 @@ impl<T: ?Sized, Space> SmallBox<T, Space> {
         unsafe {
             let mut space = ManuallyDrop::new(mem::uninitialized::<ToSpace>());
 
-            let ptr = if self.ptr.is_null() {
+            let ptr = if self.is_heap() {
+                // don't touch anything if the data is already on heap
+                self.ptr
+            } else {
+                let ptr: &T = &*self;
                 // original data is on stack
-                let (ptr, ptr_copy): (*const T, *mut u8) = if mem::size_of_val::<T>(&*self)
+                let (ptr, ptr_copy): (*const T, *mut u8) = if mem::size_of_val::<T>(ptr)
                     > mem::size_of::<ToSpace>()
-                    || mem::align_of_val::<T>(&*self) > mem::align_of::<ToSpace>()
+                    || mem::align_of_val::<T>(ptr) > mem::align_of::<ToSpace>()
                 {
                     // but we have to move it to heap
-                    let mut ptr = self.ptr;
-
-                    let layout = Layout::for_value::<T>(&*self);
+                    let layout = Layout::for_value::<T>(ptr);
                     let heap_ptr = alloc::alloc(layout) as *mut u8;
 
+                    let mut ptr: *const T = ptr;
                     let ptr_ptr = &mut ptr as *mut _ as *mut usize;
                     ptr_ptr.write(heap_ptr as usize);
 
@@ -175,9 +178,6 @@ impl<T: ?Sized, Space> SmallBox<T, Space> {
                 );
 
                 ptr
-            } else {
-                // don't touch anything if the data is already on heap
-                self.ptr
             };
 
             mem::forget(self);
@@ -198,7 +198,7 @@ impl<T: ?Sized, Space> SmallBox<T, Space> {
     unsafe fn as_ptr(&self) -> *const T {
         let mut ptr = self.ptr;
 
-        if ptr.is_null() {
+        if !self.is_heap() {
             let ptr_ptr = &mut ptr as *mut _ as *mut usize;
             ptr_ptr.write(mem::transmute(&self.space));
         }
@@ -225,8 +225,8 @@ impl<T: ?Sized, Space> ops::Drop for SmallBox<T, Space> {
     fn drop(&mut self) {
         unsafe {
             let layout = Layout::for_value::<T>(&*self);
-            ptr::drop_in_place(&mut **self);
-            if !self.ptr.is_null() {
+            ptr::drop_in_place::<T>(&mut **self);
+            if self.is_heap() {
                 alloc::dealloc(self.ptr as *mut u8, layout);
             }
         }
