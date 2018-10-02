@@ -61,8 +61,8 @@ the expected type <code>T</code>. For any invalid type coersions, this macro inv
 <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="kw-2">*</span><span class="ident">small</span>, [<span class="number">0</span>; <span class="number">2</span>]);
 <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="kw-2">*</span><span class="ident">large</span>, [<span class="number">0</span>; <span class="number">32</span>]);
 
-<span class="macro">assert</span><span class="macro">!</span>(<span class="ident">small</span>.<span class="ident">heaped</span>() <span class="op">==</span> <span class="bool-val">false</span>);
-<span class="macro">assert</span><span class="macro">!</span>(<span class="ident">large</span>.<span class="ident">heaped</span>() <span class="op">==</span> <span class="bool-val">true</span>);</pre>
+<span class="macro">assert</span><span class="macro">!</span>(<span class="ident">small</span>.<span class="ident">is_heap</span>() <span class="op">==</span> <span class="bool-val">false</span>);
+<span class="macro">assert</span><span class="macro">!</span>(<span class="ident">large</span>.<span class="ident">is_heap</span>() <span class="op">==</span> <span class="bool-val">true</span>);</pre>
 <h2 id="unsized-type-1" class="section-header"><a href="#unsized-type-1">Unsized type</a></h2>
 <pre class="rust rust-example-rendered">
 <span class="attribute">#[<span class="ident">macro_use</span>]</span>
