@@ -46,7 +46,7 @@ impl<T: ?Sized + Unsize<U>, U: ?Sized, Space> CoerceUnsized<SmallBox<U, Space>>
 /// assert_eq!(small.len(), 2);
 /// assert_eq!(large[7], 1);
 ///
-/// assert!(large.heaped() == true);
+/// assert!(large.is_heap() == true);
 /// # }
 /// ```
 #[macro_export]
@@ -83,7 +83,7 @@ impl<T: ?Sized, Space> SmallBox<T, Space> {
     /// assert_eq!(small.len(), 2);
     /// assert_eq!(large[7], 1);
     ///
-    /// assert!(large.heaped() == true);
+    /// assert!(large.is_heap() == true);
     /// ```
     pub fn new(val: T) -> SmallBox<T, Space>
     where
@@ -191,7 +191,7 @@ impl<T: ?Sized, Space> SmallBox<T, Space> {
     }
 
     /// Returns true if the data is heap-allocated
-    pub fn heaped(&self) -> bool {
+    pub fn is_heap(&self) -> bool {
         !self.ptr.is_null()
     }
 
@@ -317,8 +317,8 @@ mod tests {
         let stacked: SmallBox<usize, S1> = SmallBox::new(1234usize);
         assert!(*stacked == 1234);
 
-        let heaped: SmallBox<(usize, usize), S1> = SmallBox::new((0, 1));
-        assert!(*heaped == (0, 1));
+        let is_heap: SmallBox<(usize, usize), S1> = SmallBox::new((0, 1));
+        assert!(*is_heap == (0, 1));
     }
 
     #[test]
@@ -329,17 +329,17 @@ mod tests {
         unsafe {
             let stacked: SmallBox<[usize], S2> = SmallBox::new_unchecked(val, ptr);
             assert!(*stacked == [0, 1]);
-            assert!(!stacked.heaped());
+            assert!(!stacked.is_heap());
         }
 
         let val = [0usize, 1, 2];
         let ptr = &val as *const _;
 
         unsafe {
-            let heaped: SmallBox<Any, S2> = SmallBox::new_unchecked(val, ptr);
-            assert!(heaped.heaped());
+            let is_heap: SmallBox<Any, S2> = SmallBox::new_unchecked(val, ptr);
+            assert!(is_heap.is_heap());
 
-            if let Some(array) = heaped.downcast_ref::<[usize; 3]>() {
+            if let Some(array) = is_heap.downcast_ref::<[usize; 3]>() {
                 assert_eq!(*array, [0, 1, 2]);
             } else {
                 unreachable!();
@@ -357,8 +357,8 @@ mod tests {
             unreachable!();
         }
 
-        let heaped: SmallBox<Any, S1> = smallbox!([0usize, 1]);
-        if let Some(array) = heaped.downcast_ref::<[usize; 2]>() {
+        let is_heap: SmallBox<Any, S1> = smallbox!([0usize, 1]);
+        if let Some(array) = is_heap.downcast_ref::<[usize; 2]>() {
             assert_eq!(*array, [0, 1]);
         } else {
             unreachable!();
@@ -375,8 +375,8 @@ mod tests {
             unreachable!();
         }
 
-        let heaped: SmallBox<Any, S1> = SmallBox::new([0usize, 1]);
-        if let Some(array) = heaped.downcast_ref::<[usize; 2]>() {
+        let is_heap: SmallBox<Any, S1> = SmallBox::new([0usize, 1]);
+        if let Some(array) = is_heap.downcast_ref::<[usize; 2]>() {
             assert_eq!(*array, [0, 1]);
         } else {
             unreachable!();
@@ -420,23 +420,23 @@ mod tests {
     fn test_oversize() {
         let fit = SmallBox::<_, S1>::new([0usize; 1]);
         let oversize = SmallBox::<_, S1>::new([0usize; 2]);
-        assert!(!fit.heaped());
-        assert!(oversize.heaped());
+        assert!(!fit.is_heap());
+        assert!(oversize.is_heap());
     }
 
     #[test]
     fn test_resize() {
         let m = SmallBox::<_, S4>::new([0usize; 2]);
         let l = m.resize::<S8>();
-        assert!(!l.heaped());
+        assert!(!l.is_heap());
         let m = l.resize::<S4>();
-        assert!(!m.heaped());
+        assert!(!m.is_heap());
         let s = m.resize::<S2>();
-        assert!(!s.heaped());
+        assert!(!s.is_heap());
         let xs = s.resize::<S1>();
-        assert!(xs.heaped());
+        assert!(xs.is_heap());
         let m = xs.resize::<S4>();
-        assert!(m.heaped());
+        assert!(m.is_heap());
     }
 
     #[test]

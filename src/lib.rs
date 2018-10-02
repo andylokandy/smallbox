@@ -75,8 +75,8 @@
 //! assert_eq!(*small, [0; 2]);
 //! assert_eq!(*large, [0; 32]);
 //!
-//! assert!(small.heaped() == false);
-//! assert!(large.heaped() == true);
+//! assert!(small.is_heap() == false);
+//! assert!(large.is_heap() == true);
 //! ```
 //!
 //! ## Unsized type
