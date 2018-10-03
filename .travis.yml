@@ -1,17 +1,13 @@
 language: rust
 
-os:
-  - linux
-  - osx
-  - windows
-
-rust: 
-  - 1.28.0
-  - nightly
-    env: NIGHTLY=1
-
-script:
-- 'cargo test --verbose'
-- '["$NIGHTLY" = "1"] && cargo test --verbose --no-default-features'
-- '["$NIGHTLY" = "1"] && cargo test --verbose --features "coerce"'
-- '["$NIGHTLY" = "1"] && cargo test --verbose --no-default-features --features "coerce"'
+matrix:
+  include:
+    - rust: 1.28.0
+      script:
+        - cargo test --verbose
+    - rust: nightly
+      script:
+        - cargo test --verbose
+        - cargo test --verbose --no-default-features
+        - cargo test --verbose --features "coerce"
+        - cargo test --verbose --no-default-features --features "coerce"
