@@ -7,13 +7,12 @@ os:
 
 matrix:
   include:
-    - rust: 1.28
-      script:
-        - cargo test --verbose
+    - rust: 1.28.0
     - rust: nighlty
-      script:
-      - cargo test --verbose
-      - cargo test --verbose --no-default-features
-      - cargo test --verbose --features "coerce"
-      - cargo test --verbose --no-default-features --features "coerce"
-      
+      env: NIGHTLY=1
+
+script:
+- 'cargo test --verbose'
+- '["$NIGHTLY" = "1"] && cargo test --verbose --no-default-features'
+- '["$NIGHTLY" = "1"] && cargo test --verbose --features "coerce"'
+- '["$NIGHTLY" = "1"] && cargo test --verbose --no-default-features --features "coerce"'
