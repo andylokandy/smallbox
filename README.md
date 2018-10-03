@@ -4,7 +4,7 @@
 [![crates.io](https://img.shields.io/crates/v/smallbox.svg)](https://crates.io/crates/smallbox)
 
 
-`Small Box` optimization: store small item on the stack or fallback to heap for large item.
+`Small Box` optimization: store small item on the stack or fallback to heap for large item. Requires Rust 1.28+.
 
 ## [**Documentation**](https://andylokandy.github.io/smallbox)
 

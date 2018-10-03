@@ -5,6 +5,7 @@ authors = ["andylokandy"]
 description = "`Small Box` optimization: store small item on the stack or fallback to heap for large item."
 repository = "https://github.com/andylokandy/smallbox"
 documentation = "https://andylokandy.github.io/smallbox"
+readme = "README.md"
 keywords = ["box", "alloc", "dst", "stack", "no_std"]
 license = "MIT"
 
