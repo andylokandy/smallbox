@@ -445,7 +445,14 @@ mod tests {
 
     #[test]
     fn test_zst() {
+        struct ZSpace;
+
         let zst: SmallBox<[usize], S1> = smallbox!([0usize; 0]);
         assert_eq!(*zst, [0usize; 0]);
+
+        let zst: SmallBox<[usize], ZSpace> = smallbox!([0usize; 0]);
+        assert_eq!(*zst, [0usize; 0]);
+        let zst: SmallBox<[usize], ZSpace> = smallbox!([0usize; 2]);
+        assert_eq!(*zst, [0usize; 2]);
     }
 }
