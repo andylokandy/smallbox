@@ -206,15 +206,15 @@
 <span class="doccomment">//!   - Optional</span>
 <span class="doccomment">//!   - Require nightly rust</span>
 <span class="doccomment">//!   - Allow automatic coersion from sized `SmallBox` to unsized `SmallBox`.</span>
-<span class="doccomment">//! </span>
+<span class="doccomment">//!</span>
 <span class="doccomment">//!</span>
 <span class="doccomment">//! # Unsized Type</span>
 <span class="doccomment">//!</span>
 <span class="doccomment">//! There are two ways to have an unsized `SmallBox`: Using `smallbox!()` macro or coercing from a sized `SmallBox` instance.</span>
-<span class="doccomment">//! </span>
+<span class="doccomment">//!</span>
 <span class="doccomment">//! Using the `smallbox!()` macro is the only option on stable rust. This macro will check the types of the expression and</span>
 <span class="doccomment">//! the expected type `T`. For any invalid type coersions, this macro invokes a compiler error.</span>
-<span class="doccomment">//! </span>
+<span class="doccomment">//!</span>
 <span class="doccomment">//! Once the feature `coerce` is enabled, sized `SmallBox&lt;T&gt;` can be coerced into `SmallBox&lt;T: ?Sized&gt;` if necessary.</span>
 <span class="doccomment">//!</span>
 <span class="doccomment">//! # Example</span>
@@ -239,7 +239,7 @@
 <span class="doccomment">//! ```</span>
 <span class="doccomment">//!</span>
 <span class="doccomment">//! ## Unsized type</span>
-<span class="doccomment">//! </span>
+<span class="doccomment">//!</span>
 <span class="doccomment">//! ```rust</span>
 <span class="doccomment">//! #[macro_use]</span>
 <span class="doccomment">//! extern crate smallbox;</span>
@@ -254,9 +254,9 @@
 <span class="doccomment">//! assert_eq!(*array, [0, 1]);</span>
 <span class="doccomment">//! # }</span>
 <span class="doccomment">//! ```</span>
-<span class="doccomment">//! </span>
+<span class="doccomment">//!</span>
 <span class="doccomment">//! With `coerce` feature:</span>
-<span class="doccomment">//! </span>
+<span class="doccomment">//!</span>
 <span class="doccomment">//! ```rust</span>
 <span class="doccomment">//! # #[cfg(feature = &quot;coerce&quot;)]</span>
 <span class="doccomment">//! # {</span>
