@@ -8,8 +8,16 @@ os:
 matrix:
   include:
     - rust: 1.28.0
+      os:  
+        - linux
+        - osx
+        - windows
     - rust: nighlty
       env: NIGHTLY=1
+      os:  
+        - linux
+        - osx
+        - windows
 
 script:
 - 'cargo test --verbose'
