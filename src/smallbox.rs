@@ -147,12 +147,14 @@ impl<T: ?Sized, Space> SmallBox<T, Space> {
     where
         U: ?Sized,
     {
+        let size = mem::size_of_val::<U>(val);
+        let align = mem::align_of_val::<U>(val);
+
         let mut space = ManuallyDrop::new(mem::uninitialized::<Space>());
 
-        let (ptr_addr, ptr_copy): (*const u8, *mut u8) = if mem::size_of_val::<U>(val)
-            > mem::size_of::<Space>()
-            || mem::align_of_val::<U>(val) > mem::align_of::<Space>()
-        {
+        let (ptr_addr, ptr_copy): (*const u8, *mut u8) = if size == 0 {
+            (ptr::null(), align as *mut u8)
+        } else if size > mem::size_of::<Space>() || align > mem::align_of::<Space>() {
             // Heap
             let layout = Layout::for_value::<U>(val);
             let heap_ptr = alloc::alloc(layout);
@@ -167,11 +169,7 @@ impl<T: ?Sized, Space> SmallBox<T, Space> {
         let ptr_ptr = &mut ptr as *mut _ as *mut usize;
         ptr_ptr.write(ptr_addr as usize);
 
-        ptr::copy_nonoverlapping(
-            val as *const _ as *const u8,
-            ptr_copy,
-            mem::size_of_val::<U>(val),
-        );
+        ptr::copy_nonoverlapping(val as *const _ as *const u8, ptr_copy, size);
 
         SmallBox {
             space,
