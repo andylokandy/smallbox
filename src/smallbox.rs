@@ -102,43 +102,6 @@ impl<T: ?Sized, Space> SmallBox<T, Space> {
         result
     }
 
-    unsafe fn new_copy<U>(val: &U, ptr: *const T) -> SmallBox<T, Space>
-    where
-        U: ?Sized,
-    {
-        let mut space = ManuallyDrop::new(mem::uninitialized::<Space>());
-
-        let (ptr_addr, ptr_copy): (*const u8, *mut u8) = if mem::size_of_val::<U>(val)
-            > mem::size_of::<Space>()
-            || mem::align_of_val::<U>(val) > mem::align_of::<Space>()
-        {
-            // Heap
-            let layout = Layout::for_value::<U>(val);
-            let heap_ptr = alloc::alloc(layout);
-
-            (heap_ptr, heap_ptr)
-        } else {
-            // Stack
-            (ptr::null(), mem::transmute(&mut space))
-        };
-
-        let mut ptr = ptr;
-        let ptr_ptr = &mut ptr as *mut _ as *mut usize;
-        ptr_ptr.write(ptr_addr as usize);
-
-        ptr::copy_nonoverlapping(
-            val as *const _ as *const u8,
-            ptr_copy,
-            mem::size_of_val::<U>(val),
-        );
-
-        SmallBox {
-            space,
-            ptr,
-            _phantom: PhantomData,
-        }
-    }
-
     /// Change the capacity of `SmallBox`
     ///
     /// This method may move stack-allocated data to heap
@@ -178,6 +141,43 @@ impl<T: ?Sized, Space> SmallBox<T, Space> {
     /// Returns true if the data is heap-allocated
     pub fn is_heap(&self) -> bool {
         !self.ptr.is_null()
+    }
+
+    unsafe fn new_copy<U>(val: &U, ptr: *const T) -> SmallBox<T, Space>
+    where
+        U: ?Sized,
+    {
+        let mut space = ManuallyDrop::new(mem::uninitialized::<Space>());
+
+        let (ptr_addr, ptr_copy): (*const u8, *mut u8) = if mem::size_of_val::<U>(val)
+            > mem::size_of::<Space>()
+            || mem::align_of_val::<U>(val) > mem::align_of::<Space>()
+        {
+            // Heap
+            let layout = Layout::for_value::<U>(val);
+            let heap_ptr = alloc::alloc(layout);
+
+            (heap_ptr, heap_ptr)
+        } else {
+            // Stack
+            (ptr::null(), mem::transmute(&mut space))
+        };
+
+        let mut ptr = ptr;
+        let ptr_ptr = &mut ptr as *mut _ as *mut usize;
+        ptr_ptr.write(ptr_addr as usize);
+
+        ptr::copy_nonoverlapping(
+            val as *const _ as *const u8,
+            ptr_copy,
+            mem::size_of_val::<U>(val),
+        );
+
+        SmallBox {
+            space,
+            ptr,
+            _phantom: PhantomData,
+        }
     }
 
     unsafe fn as_ptr(&self) -> *const T {

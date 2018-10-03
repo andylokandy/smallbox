@@ -1,6 +1,6 @@
 [package]
 name = "smallbox"
-version = "0.7.0"
+version = "0.7.1"
 authors = ["andylokandy"]
 description = "`Small Box` optimization: store small item on the stack or fallback to heap for large item."
 repository = "https://github.com/andylokandy/smallbox"
