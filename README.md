@@ -4,7 +4,7 @@
 [![crates.io](https://img.shields.io/crates/v/smallbox.svg)](https://crates.io/crates/smallbox)
 
 
-`Small Box` optimization: store small item on the stack or fallback to heap for large item. Requires Rust 1.28+.
+`Small Box` optimization: store small item on stack and fallback to heap for large item. Requires Rust 1.28+.
 
 ## [**Documentation**](https://andylokandy.github.io/smallbox)
 
@@ -59,12 +59,12 @@ This crate has the following cargo feature flags:
 
 # Unsized Type
 
-There are two ways to have an unsized `SmallBox`: Using `smallbox!()` macro or coercing from a sized `SmallBox` instance.
+There are two ways to have an unsized `SmallBox`: Using `smallbox!()` macro or coercing from a sized `SmallBox` instance(requires nightly compiler).
 
-Using the `smallbox!()` macro is the only option on stable rust. This macro will check the types of the expression and
-the expected type `T`. For any invalid type coersions, this macro invokes a compiler error.
+Using the `smallbox!()` macro is the only option on stable rust. This macro will check the type of given value and
+the target type `T`. For any invalid type coersions, this macro will invoke a compile-time error.
 
-Once the feature `coerce` is enabled, sized `SmallBox<T>` can be coerced into `SmallBox<T: ?Sized>` if necessary.
+Once the feature `coerce` is enabled, sized `SmallBox<T>` will be automatically coerced into `SmallBox<T: ?Sized>` if necessary.
 
 # Example
 
@@ -88,6 +88,8 @@ assert!(large.is_heap() == true);
 ```
 
 ## Unsized type
+
+Construct with `smallbox!()` macro:
 
 ```rust
 #[macro_use]
@@ -142,7 +144,7 @@ regardless of what actually the `Space` is.
 The crate provides some spaces in module `smallbox::space`,
 from `S1`, `S2`, `S4` to `S64`, representing `"n * usize"` spaces.
 Anyway, you can defind your own space type
-such as a byte array `[u8; 64]`.
+such as byte array `[u8; 64]`.
 
 # Benchmark
 

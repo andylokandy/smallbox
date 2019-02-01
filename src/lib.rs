@@ -1,4 +1,4 @@
-//! `Small Box` optimization: store small item on the stack or fallback to heap for large item.
+//! `Small Box` optimization: store small item on stack and fallback to heap for large item.
 //!
 //! # Usage
 //!
@@ -52,10 +52,10 @@
 //! # Unsized Type
 //!
 //! There are two ways to have an unsized `SmallBox`: Using `smallbox!()` macro or coercing from a sized `SmallBox` instance.
-//!
+//! 
 //! Using the `smallbox!()` macro is the only option on stable rust. This macro will check the types of the expression and
 //! the expected type `T`. For any invalid type coersions, this macro invokes a compiler error.
-//!
+//! 
 //! Once the feature `coerce` is enabled, sized `SmallBox<T>` can be coerced into `SmallBox<T: ?Sized>` if necessary.
 //!
 //! # Example
@@ -80,6 +80,8 @@
 //! ```
 //!
 //! ## Unsized type
+//!
+//! Construct with `smallbox!()` macro:
 //!
 //! ```rust
 //! #[macro_use]
@@ -141,7 +143,7 @@
 //! The crate provides some spaces in module `smallbox::space`,
 //! from `S1`, `S2`, `S4` to `S64`, representing `"n * usize"` spaces.
 //! Anyway, you can defind your own space type
-//! such as a byte array `[u8; 64]`.
+//! such as byte array `[u8; 64]`.
 
 #![cfg_attr(feature = "coerce", feature(unsize, coerce_unsized))]
 #![cfg_attr(all(not(feature = "std"), doctest), no_std)]

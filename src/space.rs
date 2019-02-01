@@ -1,4 +1,4 @@
-//! Space types that used to define capacity
+//! Space types that is used to define capacity
 
 /// Represent 1 * usize space
 pub struct S1 {

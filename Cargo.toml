@@ -1,10 +1,11 @@
 [package]
 name = "smallbox"
-version = "0.7.2"
+version = "0.7.3"
 authors = ["andylokandy"]
-description = "`Small Box` optimization: store small item on the stack or fallback to heap for large item."
+description = "`Small Box` optimization: store small item on stack and fallback to heap for large item."
 repository = "https://github.com/andylokandy/smallbox"
 documentation = "https://andylokandy.github.io/smallbox"
+catagory = "data-structures"
 readme = "README.md"
 keywords = ["box", "alloc", "dst", "stack", "no_std"]
 license = "MIT"

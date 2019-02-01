@@ -1,3 +1,4 @@
+use std::any::Any;
 use std::cmp::Ordering;
 use std::fmt;
 use std::hash::{self, Hash};
@@ -5,7 +6,6 @@ use std::marker::PhantomData;
 use std::mem::{self, ManuallyDrop};
 use std::ops;
 use std::ptr;
-use std::any::Any;
 
 #[cfg(not(feature = "std"))]
 use alloc::alloc::{self, Layout};
@@ -20,14 +20,15 @@ use std::ops::CoerceUnsized;
 #[cfg(feature = "coerce")]
 impl<T: ?Sized + Unsize<U>, U: ?Sized, Space> CoerceUnsized<SmallBox<U, Space>>
     for SmallBox<T, Space>
-{}
+{
+}
 
-/// Box value on stack or heap depending on its size
+/// Box value on stack or on heap depending on its size
 ///
 /// This macro is similar to `SmallBox::new`, which is used to create a new `Smallbox` instance,
-/// but relaxing the constraint of `T: Sized`.
-/// In order to do that, this macro will check the coersion rules between type `T` and the
-/// expression type. This macro invokes a complier error for any invalid type coersion.
+/// but relaxing the constraint `T: Sized`.
+/// In order to do that, this macro will check the coersion rules from type `T` to
+/// target type. This macro will invoke a complie-time error on any invalid type coersion.
 ///
 /// You can think that it has the signature of `smallbox!<U: Sized, T: ?Sized>(val: U) -> SmallBox<T, Space>`
 ///
@@ -62,7 +63,7 @@ macro_rules! smallbox {
     }};
 }
 
-/// An optimized box that store value on stack or heap depending on its size
+/// An optimized box that store value on stack or on heap depending on its size
 pub struct SmallBox<T: ?Sized, Space> {
     space: ManuallyDrop<Space>,
     ptr: *const T,
@@ -70,7 +71,7 @@ pub struct SmallBox<T: ?Sized, Space> {
 }
 
 impl<T: ?Sized, Space> SmallBox<T, Space> {
-    /// Box value on stack or heap depending on its size.
+    /// Box value on stack or on heap depending on its size.
     ///
     /// # Example
     ///
@@ -86,6 +87,7 @@ impl<T: ?Sized, Space> SmallBox<T, Space> {
     ///
     /// assert!(large.is_heap() == true);
     /// ```
+    #[inline(always)]
     pub fn new(val: T) -> SmallBox<T, Space>
     where
         T: Sized,
@@ -94,6 +96,7 @@ impl<T: ?Sized, Space> SmallBox<T, Space> {
     }
 
     #[doc(hidden)]
+    #[inline]
     pub unsafe fn new_unchecked<U>(val: U, ptr: *const T) -> SmallBox<T, Space>
     where
         U: Sized,
@@ -103,11 +106,11 @@ impl<T: ?Sized, Space> SmallBox<T, Space> {
         result
     }
 
-    /// Change the capacity of `SmallBox`
+    /// Change the capacity of `SmallBox`.
     ///
-    /// This method may move stack-allocated data to heap
-    /// if the inline space is not sufficient. Once the data
-    /// is stored on heap, it'll never be moved again.
+    /// This method may move stack-allocated data from stack to heap
+    /// when inline space is not sufficient. And once the data
+    /// is moved to heap, it'll never be moved again.
     ///
     /// # Example
     ///
@@ -121,7 +124,7 @@ impl<T: ?Sized, Space> SmallBox<T, Space> {
     pub fn resize<ToSpace>(self) -> SmallBox<T, ToSpace> {
         unsafe {
             let result = if self.is_heap() {
-                // don't touch anything if the data is already on heap
+                // don't change anything if data is already on heap
                 let mut space = ManuallyDrop::new(mem::uninitialized::<ToSpace>());
                 SmallBox {
                     space,
@@ -139,7 +142,21 @@ impl<T: ?Sized, Space> SmallBox<T, Space> {
         }
     }
 
-    /// Returns true if the data is heap-allocated
+    /// Returns true if data is allocated on heap.
+    /// 
+    /// # Example
+    /// 
+    /// ```
+    /// use smallbox::SmallBox;
+    /// use smallbox::space::S1;
+    ///
+    /// let stacked: SmallBox::<usize, S1> = SmallBox::new(0usize);
+    /// assert!(!stacked.is_heap());
+    /// 
+    /// let heaped: SmallBox::<(usize, usize), S1> = SmallBox::new((0usize, 1usize));
+    /// assert!(heaped.is_heap());
+    /// ```
+    #[inline]
     pub fn is_heap(&self) -> bool {
         !self.ptr.is_null()
     }
@@ -179,6 +196,30 @@ impl<T: ?Sized, Space> SmallBox<T, Space> {
         }
     }
 
+    unsafe fn downcast_unchecked<U: Any>(self) -> SmallBox<U, Space> {
+        let size = mem::size_of::<U>();
+        let mut space = ManuallyDrop::new(mem::uninitialized::<Space>());
+
+        if !self.is_heap() {
+            ptr::copy_nonoverlapping(
+                &self.space as *const _ as *const u8,
+                &mut space as *mut _ as *mut u8,
+                size,
+            );
+        };
+
+        let ptr = self.ptr as *const U;
+
+        mem::forget(self);
+
+        SmallBox {
+            space,
+            ptr,
+            _phantom: PhantomData,
+        }
+    }
+
+    #[inline]
     unsafe fn as_ptr(&self) -> *const T {
         let mut ptr = self.ptr;
 
@@ -191,30 +232,74 @@ impl<T: ?Sized, Space> SmallBox<T, Space> {
     }
 }
 
-impl<Space> SmallBox<dyn Any + 'static, Space> {
+impl<Space> SmallBox<dyn Any, Space> {
+    /// Attempt to downcast the box to a concrete type.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// #[macro_use]
+    /// extern crate smallbox;
+    ///
+    /// # fn main() {
+    /// use std::any::Any;
+    /// use smallbox::SmallBox;
+    /// use smallbox::space::*;
+    ///
+    /// fn print_if_string(value: SmallBox<dyn Any, S1>) {
+    ///     if let Ok(string) = value.downcast::<String>() {
+    ///         println!("String ({}): {}", string.len(), string);
+    ///     }
+    /// }
+    ///
+    /// fn main() {
+    ///     let my_string = "Hello World".to_string();
+    ///     print_if_string(smallbox!(my_string));
+    ///     print_if_string(smallbox!(0i8));
+    /// }
+    /// # }
+    /// ```
+    #[inline]
     pub fn downcast<T: Any>(self) -> Result<SmallBox<T, Space>, Self> {
         if self.is::<T>() {
-            unsafe {
-                let space = ptr::read_unaligned(&self.space);
-                let ptr = self.ptr as *const T;
-                mem::forget(self);
-                Ok(SmallBox { space, ptr, _phantom: PhantomData })
-            }
+            unsafe { Ok(self.downcast_unchecked()) }
         } else {
             Err(self)
         }
     }
 }
 
-impl<Space> SmallBox<dyn Any + Send + 'static, Space> {
+impl<Space> SmallBox<dyn Any + Send, Space> {
+    /// Attempt to downcast the box to a concrete type.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// #[macro_use]
+    /// extern crate smallbox;
+    ///
+    /// # fn main() {
+    /// use std::any::Any;
+    /// use smallbox::SmallBox;
+    /// use smallbox::space::*;
+    ///
+    /// fn print_if_string(value: SmallBox<dyn Any, S1>) {
+    ///     if let Ok(string) = value.downcast::<String>() {
+    ///         println!("String ({}): {}", string.len(), string);
+    ///     }
+    /// }
+    ///
+    /// fn main() {
+    ///     let my_string = "Hello World".to_string();
+    ///     print_if_string(smallbox!(my_string));
+    ///     print_if_string(smallbox!(0i8));
+    /// }
+    /// # }
+    /// ```
+    #[inline]
     pub fn downcast<T: Any>(self) -> Result<SmallBox<T, Space>, Self> {
         if self.is::<T>() {
-            unsafe {
-                let space = ptr::read_unaligned(&self.space);
-                let ptr = self.ptr as *const T;
-                mem::forget(self);
-                Ok(SmallBox { space, ptr, _phantom: PhantomData })
-            }
+            unsafe { Ok(self.downcast_unchecked()) }
         } else {
             Err(self)
         }
@@ -279,41 +364,33 @@ impl<T: ?Sized, Space> fmt::Pointer for SmallBox<T, Space> {
 }
 
 impl<T: ?Sized + PartialEq, Space> PartialEq for SmallBox<T, Space> {
-    #[inline]
     fn eq(&self, other: &SmallBox<T, Space>) -> bool {
         PartialEq::eq(&**self, &**other)
     }
-    #[inline]
     fn ne(&self, other: &SmallBox<T, Space>) -> bool {
         PartialEq::ne(&**self, &**other)
     }
 }
 
 impl<T: ?Sized + PartialOrd, Space> PartialOrd for SmallBox<T, Space> {
-    #[inline]
     fn partial_cmp(&self, other: &SmallBox<T, Space>) -> Option<Ordering> {
         PartialOrd::partial_cmp(&**self, &**other)
     }
-    #[inline]
     fn lt(&self, other: &SmallBox<T, Space>) -> bool {
         PartialOrd::lt(&**self, &**other)
     }
-    #[inline]
     fn le(&self, other: &SmallBox<T, Space>) -> bool {
         PartialOrd::le(&**self, &**other)
     }
-    #[inline]
     fn ge(&self, other: &SmallBox<T, Space>) -> bool {
         PartialOrd::ge(&**self, &**other)
     }
-    #[inline]
     fn gt(&self, other: &SmallBox<T, Space>) -> bool {
         PartialOrd::gt(&**self, &**other)
     }
 }
 
 impl<T: ?Sized + Ord, Space> Ord for SmallBox<T, Space> {
-    #[inline]
     fn cmp(&self, other: &SmallBox<T, Space>) -> Ordering {
         Ord::cmp(&**self, &**other)
     }
@@ -415,8 +492,7 @@ mod tests {
     fn test_drop() {
         use std::cell::Cell;
 
-        #[derive(Debug, Clone)]
-        struct Struct<'a>(&'a Cell<bool>);
+        struct Struct<'a>(&'a Cell<bool>, u8);
         impl<'a> Drop for Struct<'a> {
             fn drop(&mut self) {
                 self.0.set(true);
@@ -424,10 +500,17 @@ mod tests {
         }
 
         let flag = Cell::new(false);
-        let val: SmallBox<_, S2> = SmallBox::new(Struct(&flag));
+        let stacked: SmallBox<_, S2> = SmallBox::new(Struct(&flag, 0));
+        assert!(!stacked.is_heap());
         assert!(flag.get() == false);
+        drop(stacked);
+        assert!(flag.get() == true);
 
-        drop(val);
+        let flag = Cell::new(false);
+        let heaped: SmallBox<_, S1> = SmallBox::new(Struct(&flag, 0));
+        assert!(heaped.is_heap());
+        assert!(flag.get() == false);
+        drop(heaped);
         assert!(flag.get() == true);
     }
 
@@ -445,15 +528,15 @@ mod tests {
 
     #[test]
     fn test_oversize() {
-        let fit = SmallBox::<_, S1>::new([0usize; 1]);
-        let oversize = SmallBox::<_, S1>::new([0usize; 2]);
+        let fit = SmallBox::<_, S1>::new([1usize]);
+        let oversize = SmallBox::<_, S1>::new([1usize, 2]);
         assert!(!fit.is_heap());
         assert!(oversize.is_heap());
     }
 
     #[test]
     fn test_resize() {
-        let m = SmallBox::<_, S4>::new([0usize; 2]);
+        let m = SmallBox::<_, S4>::new([1usize, 2]);
         let l = m.resize::<S8>();
         assert!(!l.is_heap());
         let m = l.resize::<S4>();
@@ -468,7 +551,7 @@ mod tests {
 
     #[test]
     fn test_clone() {
-        let stacked: SmallBox<[usize; 2], S2> = smallbox!([0usize, 1]);
+        let stacked: SmallBox<[usize; 2], S2> = smallbox!([1usize, 2]);
         assert_eq!(stacked, stacked.clone())
     }
 
@@ -476,44 +559,42 @@ mod tests {
     fn test_zst() {
         struct ZSpace;
 
-        let zst: SmallBox<[usize], S1> = smallbox!([0usize; 0]);
-        assert_eq!(*zst, [0usize; 0]);
+        let zst: SmallBox<[usize], S1> = smallbox!([1usize; 0]);
+        assert_eq!(*zst, [1usize; 0]);
 
-        let zst: SmallBox<[usize], ZSpace> = smallbox!([0usize; 0]);
-        assert_eq!(*zst, [0usize; 0]);
-        let zst: SmallBox<[usize], ZSpace> = smallbox!([0usize; 2]);
-        assert_eq!(*zst, [0usize; 2]);
+        let zst: SmallBox<[usize], ZSpace> = smallbox!([1usize; 0]);
+        assert_eq!(*zst, [1usize; 0]);
+        let zst: SmallBox<[usize], ZSpace> = smallbox!([1usize; 2]);
+        assert_eq!(*zst, [1usize; 2]);
     }
 
     #[test]
     fn test_downcast() {
-        pub struct U32(u32);
+        let stacked: SmallBox<dyn Any, S1> = smallbox!(0x01u32);
+        assert!(!stacked.is_heap());
+        assert_eq!(SmallBox::new(0x01), stacked.downcast::<u32>().unwrap());
 
-        let m: SmallBox<dyn Any + 'static, S1> = smallbox!(0x01u32);
-        assert!(!m.is_heap());
-        assert_eq!(Some(SmallBox::new(0x01)), m.downcast::<u32>().ok());
+        let heaped: SmallBox<dyn Any, S1> = smallbox!([1usize, 2]);
+        assert!(heaped.is_heap());
+        assert_eq!(
+            smallbox!([1usize, 2]),
+            heaped.downcast::<[usize; 2]>().unwrap()
+        );
 
-        let m: SmallBox<dyn Any + 'static, S1> = smallbox!(0x01u32);
-        assert!(m.downcast::<U32>().is_err());
-        let m: SmallBox<dyn Any + 'static, S1> = smallbox!(0x01u32);
-        assert!(m.downcast::<u8>().is_err());
-        let m: SmallBox<dyn Any + 'static, S1> = smallbox!(0x01u32);
-        assert!(m.downcast::<u128>().is_err());
+        let stacked_send: SmallBox<dyn Any + Send, S1> = smallbox!(0x01u32);
+        assert!(!stacked_send.is_heap());
+        assert_eq!(SmallBox::new(0x01), stacked_send.downcast::<u32>().unwrap());
 
-        let m: SmallBox<dyn Any + 'static, S1> = smallbox!(0x01u128);
-        assert!(m.is_heap());
-        assert_eq!(Some(SmallBox::new(0x01)), m.downcast::<u128>().ok());
+        let heaped_send: SmallBox<dyn Any + Send, S1> = smallbox!([1usize, 2]);
+        assert!(heaped_send.is_heap());
+        assert_eq!(
+            SmallBox::new([1usize, 2]),
+            heaped_send.downcast::<[usize; 2]>().unwrap()
+        );
 
-        let m: SmallBox<dyn Any + 'static, S1> = smallbox!(0x01u128);
-        assert!(m.downcast::<u8>().is_err());
-
-
-        let m: SmallBox<dyn Any + Send + 'static, S1> = smallbox!(0x01u32);
-        assert!(!m.is_heap());
-        assert_eq!(Some(SmallBox::new(0x01)), m.downcast::<u32>().ok());
-
-        let m: SmallBox<dyn Any + Send + 'static, S1> = smallbox!(0x01u128);
-        assert!(m.is_heap());
-        assert_eq!(Some(SmallBox::new(0x01)), m.downcast::<u128>().ok());
+        let mismatched: SmallBox<dyn Any, S1> = smallbox!(0x01u32);
+        assert!(mismatched.downcast::<u8>().is_err());
+        let mismatched: SmallBox<dyn Any, S1> = smallbox!(0x01u32);
+        assert!(mismatched.downcast::<u64>().is_err());
     }
 }
