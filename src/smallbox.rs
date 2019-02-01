@@ -5,6 +5,7 @@ use std::marker::PhantomData;
 use std::mem::{self, ManuallyDrop};
 use std::ops;
 use std::ptr;
+use std::any::Any;
 
 #[cfg(not(feature = "std"))]
 use alloc::alloc::{self, Layout};
@@ -187,6 +188,36 @@ impl<T: ?Sized, Space> SmallBox<T, Space> {
         }
 
         ptr
+    }
+}
+
+impl<Space> SmallBox<dyn Any + 'static, Space> {
+    pub fn downcast<T: Any>(self) -> Result<SmallBox<T, Space>, Self> {
+        if self.is::<T>() {
+            unsafe {
+                let space = ptr::read_unaligned(&self.space);
+                let ptr = self.ptr as *const T;
+                mem::forget(self);
+                Ok(SmallBox { space, ptr, _phantom: PhantomData })
+            }
+        } else {
+            Err(self)
+        }
+    }
+}
+
+impl<Space> SmallBox<dyn Any + Send + 'static, Space> {
+    pub fn downcast<T: Any>(self) -> Result<SmallBox<T, Space>, Self> {
+        if self.is::<T>() {
+            unsafe {
+                let space = ptr::read_unaligned(&self.space);
+                let ptr = self.ptr as *const T;
+                mem::forget(self);
+                Ok(SmallBox { space, ptr, _phantom: PhantomData })
+            }
+        } else {
+            Err(self)
+        }
     }
 }
 
@@ -452,5 +483,37 @@ mod tests {
         assert_eq!(*zst, [0usize; 0]);
         let zst: SmallBox<[usize], ZSpace> = smallbox!([0usize; 2]);
         assert_eq!(*zst, [0usize; 2]);
+    }
+
+    #[test]
+    fn test_downcast() {
+        pub struct U32(u32);
+
+        let m: SmallBox<dyn Any + 'static, S1> = smallbox!(0x01u32);
+        assert!(!m.is_heap());
+        assert_eq!(Some(SmallBox::new(0x01)), m.downcast::<u32>().ok());
+
+        let m: SmallBox<dyn Any + 'static, S1> = smallbox!(0x01u32);
+        assert!(m.downcast::<U32>().is_err());
+        let m: SmallBox<dyn Any + 'static, S1> = smallbox!(0x01u32);
+        assert!(m.downcast::<u8>().is_err());
+        let m: SmallBox<dyn Any + 'static, S1> = smallbox!(0x01u32);
+        assert!(m.downcast::<u128>().is_err());
+
+        let m: SmallBox<dyn Any + 'static, S1> = smallbox!(0x01u128);
+        assert!(m.is_heap());
+        assert_eq!(Some(SmallBox::new(0x01)), m.downcast::<u128>().ok());
+
+        let m: SmallBox<dyn Any + 'static, S1> = smallbox!(0x01u128);
+        assert!(m.downcast::<u8>().is_err());
+
+
+        let m: SmallBox<dyn Any + Send + 'static, S1> = smallbox!(0x01u32);
+        assert!(!m.is_heap());
+        assert_eq!(Some(SmallBox::new(0x01)), m.downcast::<u32>().ok());
+
+        let m: SmallBox<dyn Any + Send + 'static, S1> = smallbox!(0x01u128);
+        assert!(m.is_heap());
+        assert_eq!(Some(SmallBox::new(0x01)), m.downcast::<u128>().ok());
     }
 }
