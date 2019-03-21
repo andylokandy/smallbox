@@ -143,16 +143,16 @@ impl<T: ?Sized, Space> SmallBox<T, Space> {
     }
 
     /// Returns true if data is allocated on heap.
-    /// 
+    ///
     /// # Example
-    /// 
+    ///
     /// ```
     /// use smallbox::SmallBox;
     /// use smallbox::space::S1;
     ///
     /// let stacked: SmallBox::<usize, S1> = SmallBox::new(0usize);
     /// assert!(!stacked.is_heap());
-    /// 
+    ///
     /// let heaped: SmallBox::<(usize, usize), S1> = SmallBox::new((0usize, 1usize));
     /// assert!(heaped.is_heap());
     /// ```
@@ -596,5 +596,11 @@ mod tests {
         assert!(mismatched.downcast::<u8>().is_err());
         let mismatched: SmallBox<dyn Any, S1> = smallbox!(0x01u32);
         assert!(mismatched.downcast::<u64>().is_err());
+    }
+
+    #[test]
+    fn test_option_encoding() {
+        let tester: SmallBox<Box<()>, S2> = SmallBox::new(Box::new(()));
+        assert!(Some(tester).is_some());
     }
 }
