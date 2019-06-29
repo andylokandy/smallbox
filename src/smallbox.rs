@@ -230,6 +230,41 @@ impl<T: ?Sized, Space> SmallBox<T, Space> {
 
         ptr
     }
+
+    ///
+    /// Consumes the SmallBox and returns ownership of the boxed value
+    ///
+    /// # Examples
+    /// ```
+    /// use smallbox::SmallBox;
+    /// use smallbox::space::S1;
+    ///
+    /// let tester : SmallBox<_, S1> = SmallBox::new([21usize]);
+    /// let val = tester.take();
+    /// assert_eq!(val[0], 21);
+    ///
+    /// let tester : SmallBox<_, S1> = SmallBox::new(vec![21,56,420]);
+    /// let val = tester.take();
+    /// assert_eq!(val[1], 56);
+    /// ```
+    ///
+    #[inline]
+    pub fn take(self) -> T
+    where
+        T: Sized,
+    {
+        let ret_val : T = unsafe { self.as_ptr().read() };
+
+
+        // Just drops the heap without dropping the boxed value
+        if self.is_heap() {
+            let layout = Layout::for_value::<T>(&*self);
+            unsafe { alloc::dealloc(self.ptr as *mut u8, layout); }
+        }
+        mem::forget(self);
+
+        ret_val
+    }
 }
 
 impl<Space> SmallBox<dyn Any, Space> {
@@ -602,5 +637,17 @@ mod tests {
     fn test_option_encoding() {
         let tester: SmallBox<Box<()>, S2> = SmallBox::new(Box::new(()));
         assert!(Some(tester).is_some());
+    }
+
+    #[test]
+    fn test_take()
+    {
+        let tester : SmallBox<_, S1> = SmallBox::new([21usize]);
+        let val = tester.take();
+        assert_eq!(val[0], 21);
+
+        let tester : SmallBox<_, S1> = SmallBox::new(vec![21,56,420]);
+        let val = tester.take();
+        assert_eq!(val[1], 56);
     }
 }
