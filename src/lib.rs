@@ -52,10 +52,10 @@
 //! # Unsized Type
 //!
 //! There are two ways to have an unsized `SmallBox`: Using `smallbox!()` macro or coercing from a sized `SmallBox` instance.
-//! 
+//!
 //! Using the `smallbox!()` macro is the only option on stable rust. This macro will check the types of the expression and
 //! the expected type `T`. For any invalid type coersions, this macro invokes a compiler error.
-//! 
+//!
 //! Once the feature `coerce` is enabled, sized `SmallBox<T>` can be coerced into `SmallBox<T: ?Sized>` if necessary.
 //!
 //! # Example

@@ -20,8 +20,7 @@ use std::ops::CoerceUnsized;
 #[cfg(feature = "coerce")]
 impl<T: ?Sized + Unsize<U>, U: ?Sized, Space> CoerceUnsized<SmallBox<U, Space>>
     for SmallBox<T, Space>
-{
-}
+{}
 
 /// Box value on stack or on heap depending on its size
 ///
@@ -125,7 +124,7 @@ impl<T: ?Sized, Space> SmallBox<T, Space> {
         unsafe {
             let result = if self.is_heap() {
                 // don't change anything if data is already on heap
-                let mut space = ManuallyDrop::new(mem::uninitialized::<ToSpace>());
+                let space = ManuallyDrop::new(mem::uninitialized::<ToSpace>());
                 SmallBox {
                     space,
                     ptr: self.ptr,
@@ -202,8 +201,8 @@ impl<T: ?Sized, Space> SmallBox<T, Space> {
 
         if !self.is_heap() {
             ptr::copy_nonoverlapping(
-                &self.space as *const _ as *const u8,
-                &mut space as *mut _ as *mut u8,
+                mem::transmute::<*const Space, *const u8>(&*self.space),
+                mem::transmute::<*mut Space, *mut u8>(&mut *space),
                 size,
             );
         };
@@ -231,7 +230,6 @@ impl<T: ?Sized, Space> SmallBox<T, Space> {
         ptr
     }
 
-    ///
     /// Consumes the SmallBox and returns ownership of the boxed value
     ///
     /// # Examples
@@ -239,12 +237,12 @@ impl<T: ?Sized, Space> SmallBox<T, Space> {
     /// use smallbox::SmallBox;
     /// use smallbox::space::S1;
     ///
-    /// let tester : SmallBox<_, S1> = SmallBox::new([21usize]);
-    /// let val = tester.take();
+    /// let stacked : SmallBox<_, S1> = SmallBox::new([21usize]);
+    /// let val = stacked.take();
     /// assert_eq!(val[0], 21);
     ///
-    /// let tester : SmallBox<_, S1> = SmallBox::new(vec![21,56,420]);
-    /// let val = tester.take();
+    /// let boxed : SmallBox<_, S1> = SmallBox::new(vec![21, 56, 420]);
+    /// let val = boxed.take();
     /// assert_eq!(val[1], 56);
     /// ```
     ///
@@ -253,13 +251,14 @@ impl<T: ?Sized, Space> SmallBox<T, Space> {
     where
         T: Sized,
     {
-        let ret_val : T = unsafe { self.as_ptr().read() };
-
+        let ret_val: T = unsafe { self.as_ptr().read() };
 
         // Just drops the heap without dropping the boxed value
         if self.is_heap() {
-            let layout = Layout::for_value::<T>(&*self);
-            unsafe { alloc::dealloc(self.ptr as *mut u8, layout); }
+            let layout = Layout::new::<T>();
+            unsafe {
+                alloc::dealloc(self.ptr as *mut u8, layout);
+            }
         }
         mem::forget(self);
 
@@ -472,7 +471,7 @@ mod tests {
         let ptr = &val as *const _;
 
         unsafe {
-            let heaped: SmallBox<Any, S2> = SmallBox::new_unchecked(val, ptr);
+            let heaped: SmallBox<dyn Any, S2> = SmallBox::new_unchecked(val, ptr);
             assert!(heaped.is_heap());
 
             if let Some(array) = heaped.downcast_ref::<[usize; 3]>() {
@@ -486,21 +485,21 @@ mod tests {
     #[test]
     #[deny(unsafe_code)]
     fn test_macro() {
-        let stacked: SmallBox<Any, S1> = smallbox!(1234usize);
+        let stacked: SmallBox<dyn Any, S1> = smallbox!(1234usize);
         if let Some(num) = stacked.downcast_ref::<usize>() {
             assert_eq!(*num, 1234);
         } else {
             unreachable!();
         }
 
-        let heaped: SmallBox<Any, S1> = smallbox!([0usize, 1]);
+        let heaped: SmallBox<dyn Any, S1> = smallbox!([0usize, 1]);
         if let Some(array) = heaped.downcast_ref::<[usize; 2]>() {
             assert_eq!(*array, [0, 1]);
         } else {
             unreachable!();
         }
 
-        let is_even: SmallBox<Fn(u8) -> bool, S1> = smallbox!(|num: u8| num % 2 == 0);
+        let is_even: SmallBox<dyn Fn(u8) -> bool, S1> = smallbox!(|num: u8| num % 2 == 0);
         assert!(!is_even(5));
         assert!(is_even(6));
     }
@@ -640,13 +639,12 @@ mod tests {
     }
 
     #[test]
-    fn test_take()
-    {
-        let tester : SmallBox<_, S1> = SmallBox::new([21usize]);
+    fn test_take() {
+        let tester: SmallBox<_, S1> = SmallBox::new([21usize]);
         let val = tester.take();
         assert_eq!(val[0], 21);
 
-        let tester : SmallBox<_, S1> = SmallBox::new(vec![21,56,420]);
+        let tester: SmallBox<_, S1> = SmallBox::new(vec![21, 56, 420]);
         let val = tester.take();
         assert_eq!(val[1], 56);
     }
