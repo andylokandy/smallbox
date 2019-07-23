@@ -506,14 +506,14 @@ mod tests {
     #[test]
     #[cfg(feature = "coerce")]
     fn test_coerce() {
-        let stacked: SmallBox<Any, S1> = SmallBox::new(1234usize);
+        let stacked: SmallBox<dyn Any, S1> = SmallBox::new(1234usize);
         if let Some(num) = stacked.downcast_ref::<usize>() {
             assert_eq!(*num, 1234);
         } else {
             unreachable!();
         }
 
-        let heaped: SmallBox<Any, S1> = SmallBox::new([0usize, 1]);
+        let heaped: SmallBox<dyn Any, S1> = SmallBox::new([0usize, 1]);
         if let Some(array) = heaped.downcast_ref::<[usize; 2]>() {
             assert_eq!(*array, [0, 1]);
         } else {
