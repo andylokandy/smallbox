@@ -238,16 +238,15 @@ impl<T: ?Sized, Space> SmallBox<T, Space> {
     /// use smallbox::space::S1;
     ///
     /// let stacked : SmallBox<_, S1> = SmallBox::new([21usize]);
-    /// let val = stacked.take();
+    /// let val = stacked.into_inner();
     /// assert_eq!(val[0], 21);
     ///
     /// let boxed : SmallBox<_, S1> = SmallBox::new(vec![21, 56, 420]);
-    /// let val = boxed.take();
+    /// let val = boxed.into_inner();
     /// assert_eq!(val[1], 56);
     /// ```
-    ///
     #[inline]
-    pub fn take(self) -> T
+    pub fn into_inner(self) -> T
     where
         T: Sized,
     {
@@ -639,13 +638,13 @@ mod tests {
     }
 
     #[test]
-    fn test_take() {
+    fn test_into_inner() {
         let tester: SmallBox<_, S1> = SmallBox::new([21usize]);
-        let val = tester.take();
+        let val = tester.into_inner();
         assert_eq!(val[0], 21);
 
         let tester: SmallBox<_, S1> = SmallBox::new(vec![21, 56, 420]);
-        let val = tester.take();
+        let val = tester.into_inner();
         assert_eq!(val[1], 56);
     }
 }
