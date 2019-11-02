@@ -443,7 +443,7 @@ unsafe impl<T: ?Sized + Sync, Space> Sync for SmallBox<T, Space> {}
 #[cfg(test)]
 mod tests {
     use super::SmallBox;
-    use space::*;
+    use crate::space::*;
     use std::any::Any;
 
     #[test]
