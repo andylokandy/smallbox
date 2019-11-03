@@ -6,7 +6,7 @@
 //!
 //! ```toml
 //! [dependencies]
-//! smallbox = "0.7"
+//! smallbox = "0.8"
 //! ```
 //!
 //! Next, add this to your crate root:
@@ -19,7 +19,7 @@
 //!
 //! ```toml
 //! [dependencies]
-//! smallbox = { version = "0.7", features = ["coerce"] }
+//! smallbox = { version = "0.8", features = ["coerce"] }
 //! ```
 //!
 //! Currently `smallbox` by default links to the standard library, but if you would
@@ -27,7 +27,7 @@
 //!
 //! ```toml
 //! [dependencies.smallbox]
-//! version = "0.7"
+//! version = "0.8"
 //! features = ["coerce"]
 //! default-features = false
 //! ```
@@ -146,10 +146,10 @@
 //! such as byte array `[u8; 64]`.
 
 #![cfg_attr(feature = "coerce", feature(unsize, coerce_unsized))]
+#![cfg_attr(not(feature = "std"), feature(cfg_doctest))]
 #![cfg_attr(all(not(feature = "std"), doctest), no_std)]
-#![cfg_attr(not(feature = "std"), feature(alloc))]
 
-#[cfg(not(feature = "std"))]
+#[cfg(not(any(feature = "std", doctest)))]
 extern crate alloc;
 #[cfg(all(not(feature = "std"), doctest))]
 extern crate core as std;

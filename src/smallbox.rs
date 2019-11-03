@@ -7,9 +7,9 @@ use std::mem::{self, ManuallyDrop};
 use std::ops;
 use std::ptr;
 
-#[cfg(not(feature = "std"))]
-use alloc::alloc::{self, Layout};
-#[cfg(feature = "std")]
+#[cfg(not(any(feature = "std", doctest)))]
+use ::alloc::alloc::{self, Layout};
+#[cfg(any(feature = "std", doctest))]
 use std::alloc::{self, Layout};
 
 #[cfg(feature = "coerce")]
@@ -124,7 +124,7 @@ impl<T: ?Sized, Space> SmallBox<T, Space> {
         unsafe {
             let result = if self.is_heap() {
                 // don't change anything if data is already on heap
-                let space = ManuallyDrop::new(mem::uninitialized::<ToSpace>());
+                let space = ManuallyDrop::new(mem::MaybeUninit::<ToSpace>::uninit().assume_init());
                 SmallBox {
                     space,
                     ptr: self.ptr,
@@ -167,7 +167,7 @@ impl<T: ?Sized, Space> SmallBox<T, Space> {
         let size = mem::size_of_val::<U>(val);
         let align = mem::align_of_val::<U>(val);
 
-        let mut space = ManuallyDrop::new(mem::uninitialized::<Space>());
+        let mut space = ManuallyDrop::new(mem::MaybeUninit::<Space>::uninit().assume_init());
 
         let (ptr_addr, ptr_copy): (*const u8, *mut u8) = if size == 0 {
             (ptr::null(), align as *mut u8)
@@ -197,7 +197,7 @@ impl<T: ?Sized, Space> SmallBox<T, Space> {
 
     unsafe fn downcast_unchecked<U: Any>(self) -> SmallBox<U, Space> {
         let size = mem::size_of::<U>();
-        let mut space = ManuallyDrop::new(mem::uninitialized::<Space>());
+        let mut space = ManuallyDrop::new(mem::MaybeUninit::<Space>::uninit().assume_init());
 
         if !self.is_heap() {
             ptr::copy_nonoverlapping(
