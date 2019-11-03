@@ -157,4 +157,4 @@ extern crate core as std;
 mod smallbox;
 pub mod space;
 
-pub use smallbox::SmallBox;
+pub use crate::smallbox::SmallBox;
