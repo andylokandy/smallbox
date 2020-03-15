@@ -66,7 +66,14 @@ macro_rules! smallbox {
 pub struct SmallBox<T: ?Sized, Space> {
     space: ManuallyDrop<Space>,
     ptr: *const T,
-    _phantom: PhantomData<T>,
+
+    // As in `core::ptr::unique::Unique`, this marker has no consequences for
+    // variance, but is necessary for dropck to understand that we logically
+    // own a `T`.
+    //
+    // For details, see:
+    // https://github.com/rust-lang/rfcs/blob/master/text/0769-sound-generic-drop.md#phantom-data
+    _marker: PhantomData<T>,
 }
 
 impl<T: ?Sized, Space> SmallBox<T, Space> {
@@ -128,7 +135,7 @@ impl<T: ?Sized, Space> SmallBox<T, Space> {
                 SmallBox {
                     space,
                     ptr: self.ptr,
-                    _phantom: PhantomData,
+                    _marker: PhantomData,
                 }
             } else {
                 let val: &T = &*self;
@@ -191,7 +198,7 @@ impl<T: ?Sized, Space> SmallBox<T, Space> {
         SmallBox {
             space,
             ptr,
-            _phantom: PhantomData,
+            _marker: PhantomData,
         }
     }
 
@@ -214,7 +221,7 @@ impl<T: ?Sized, Space> SmallBox<T, Space> {
         SmallBox {
             space,
             ptr,
-            _phantom: PhantomData,
+            _marker: PhantomData,
         }
     }
 
