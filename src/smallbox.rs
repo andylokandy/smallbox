@@ -3,7 +3,7 @@ use std::cmp::Ordering;
 use std::fmt;
 use std::hash::{self, Hash};
 use std::marker::PhantomData;
-use std::mem::{self, ManuallyDrop};
+use std::mem::{self, MaybeUninit};
 use std::ops;
 use std::ptr;
 
@@ -20,14 +20,15 @@ use std::ops::CoerceUnsized;
 #[cfg(feature = "coerce")]
 impl<T: ?Sized + Unsize<U>, U: ?Sized, Space> CoerceUnsized<SmallBox<U, Space>>
     for SmallBox<T, Space>
-{}
+{
+}
 
 /// Box value on stack or on heap depending on its size
 ///
 /// This macro is similar to `SmallBox::new`, which is used to create a new `Smallbox` instance,
 /// but relaxing the constraint `T: Sized`.
 /// In order to do that, this macro will check the coersion rules from type `T` to
-/// target type. This macro will invoke a complie-time error on any invalid type coersion.
+/// the target type. This macro will invoke a complie-time error on any invalid type coersion.
 ///
 /// You can think that it has the signature of `smallbox!<U: Sized, T: ?Sized>(val: U) -> SmallBox<T, Space>`
 ///
@@ -64,7 +65,7 @@ macro_rules! smallbox {
 
 /// An optimized box that store value on stack or on heap depending on its size
 pub struct SmallBox<T: ?Sized, Space> {
-    space: ManuallyDrop<Space>,
+    space: MaybeUninit<Space>,
     ptr: *const T,
     _phantom: PhantomData<T>,
 }
@@ -124,7 +125,7 @@ impl<T: ?Sized, Space> SmallBox<T, Space> {
         unsafe {
             let result = if self.is_heap() {
                 // don't change anything if data is already on heap
-                let space = ManuallyDrop::new(mem::MaybeUninit::<ToSpace>::uninit().assume_init());
+                let space = MaybeUninit::<ToSpace>::uninit();
                 SmallBox {
                     space,
                     ptr: self.ptr,
@@ -167,7 +168,7 @@ impl<T: ?Sized, Space> SmallBox<T, Space> {
         let size = mem::size_of_val::<U>(val);
         let align = mem::align_of_val::<U>(val);
 
-        let mut space = ManuallyDrop::new(mem::MaybeUninit::<Space>::uninit().assume_init());
+        let mut space = MaybeUninit::<Space>::uninit();
 
         let (ptr_addr, ptr_copy): (*const u8, *mut u8) = if size == 0 {
             (ptr::null(), align as *mut u8)
@@ -179,9 +180,10 @@ impl<T: ?Sized, Space> SmallBox<T, Space> {
             (heap_ptr, heap_ptr)
         } else {
             // Stack
-            (ptr::null(), mem::transmute(&mut space))
+            (ptr::null(), space.as_mut_ptr() as *mut u8)
         };
 
+        // Overwrite the pointer but retain any extra data inside the fat pointer.
         let mut ptr = ptr;
         let ptr_ptr = &mut ptr as *mut _ as *mut usize;
         ptr_ptr.write(ptr_addr as usize);
@@ -197,12 +199,12 @@ impl<T: ?Sized, Space> SmallBox<T, Space> {
 
     unsafe fn downcast_unchecked<U: Any>(self) -> SmallBox<U, Space> {
         let size = mem::size_of::<U>();
-        let mut space = ManuallyDrop::new(mem::MaybeUninit::<Space>::uninit().assume_init());
+        let mut space = MaybeUninit::<Space>::uninit();
 
         if !self.is_heap() {
             ptr::copy_nonoverlapping(
-                mem::transmute::<*const Space, *const u8>(&*self.space),
-                mem::transmute::<*mut Space, *mut u8>(&mut *space),
+                self.space.as_ptr() as *const u8,
+                space.as_mut_ptr() as *mut u8,
                 size,
             );
         };
@@ -223,8 +225,9 @@ impl<T: ?Sized, Space> SmallBox<T, Space> {
         let mut ptr = self.ptr;
 
         if !self.is_heap() {
+            // Overwrite the pointer but retain any extra data inside the fat pointer.
             let ptr_ptr = &mut ptr as *mut _ as *mut usize;
-            ptr_ptr.write(mem::transmute(&self.space));
+            ptr_ptr.write(self.space.as_ptr() as *const () as usize);
         }
 
         ptr
@@ -580,6 +583,7 @@ mod tests {
         assert!(xs.is_heap());
         let m = xs.resize::<S4>();
         assert!(m.is_heap());
+        assert_eq!(*m, [1usize, 2]);
     }
 
     #[test]

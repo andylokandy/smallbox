@@ -143,8 +143,13 @@ regardless of what actually the `Space` is.
 
 The crate provides some spaces in module `smallbox::space`,
 from `S1`, `S2`, `S4` to `S64`, representing `"n * usize"` spaces.
+
 Anyway, you can defind your own space type
 such as byte array `[u8; 64]`.
+Please note that the space alignment is also important. If the alignment
+of the space is smaller than the alignment of the value, the value
+will be stored in the heap.
+
 
 # Benchmark
 
