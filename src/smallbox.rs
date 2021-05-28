@@ -233,6 +233,19 @@ impl<T: ?Sized, Space> SmallBox<T, Space> {
         ptr
     }
 
+    #[inline]
+    unsafe fn as_mut_ptr(&mut self) -> *mut T {
+        let mut ptr = self.ptr;
+
+        if !self.is_heap() {
+            // Overwrite the pointer but retain any extra data inside the fat pointer.
+            let ptr_ptr = &mut ptr as *mut _ as *mut usize;
+            ptr_ptr.write(self.space.as_mut_ptr() as *mut () as usize);
+        }
+
+        ptr as *mut _
+    }
+
     /// Consumes the SmallBox and returns ownership of the boxed value
     ///
     /// # Examples
@@ -352,7 +365,7 @@ impl<T: ?Sized, Space> ops::Deref for SmallBox<T, Space> {
 
 impl<T: ?Sized, Space> ops::DerefMut for SmallBox<T, Space> {
     fn deref_mut(&mut self) -> &mut T {
-        unsafe { &mut *(self.as_ptr() as *const _ as *mut _) }
+        unsafe { &mut *self.as_mut_ptr() }
     }
 }
 
