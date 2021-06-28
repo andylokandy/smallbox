@@ -124,7 +124,7 @@
 //! use smallbox::SmallBox;
 //! use smallbox::space::S2;
 //!
-//! let num: SmallBox<Any, S2> = smallbox!(1234u32);
+//! let num: SmallBox<dyn Any, S2> = smallbox!(1234u32);
 //!
 //! if let Some(num) = num.downcast_ref::<u32>() {
 //!     assert_eq!(*num, 1234);
