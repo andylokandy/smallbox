@@ -25,7 +25,7 @@ impl<T: ?Sized + Unsize<U>, U: ?Sized, Space> CoerceUnsized<SmallBox<U, Space>>
 
 /// Box value on stack or on heap depending on its size
 ///
-/// This macro is similar to `SmallBox::new`, which is used to create a new `Smallbox` instance,
+/// This macro is similar to `SmallBox::new`, which is used to create a new `SmallBox` instance,
 /// but relaxing the constraint `T: Sized`.
 /// In order to do that, this macro will check the coersion rules from type `T` to
 /// the target type. This macro will invoke a complie-time error on any invalid type coersion.
@@ -416,9 +416,6 @@ impl<T: ?Sized + PartialEq, Space> PartialEq for SmallBox<T, Space> {
     fn eq(&self, other: &SmallBox<T, Space>) -> bool {
         PartialEq::eq(&**self, &**other)
     }
-    fn ne(&self, other: &SmallBox<T, Space>) -> bool {
-        PartialEq::ne(&**self, &**other)
-    }
 }
 
 impl<T: ?Sized + PartialOrd, Space> PartialOrd for SmallBox<T, Space> {
@@ -551,16 +548,16 @@ mod tests {
         let flag = Cell::new(false);
         let stacked: SmallBox<_, S2> = SmallBox::new(Struct(&flag, 0));
         assert!(!stacked.is_heap());
-        assert!(flag.get() == false);
+        assert!(!flag.get());
         drop(stacked);
-        assert!(flag.get() == true);
+        assert!(flag.get());
 
         let flag = Cell::new(false);
         let heaped: SmallBox<_, S1> = SmallBox::new(Struct(&flag, 0));
         assert!(heaped.is_heap());
-        assert!(flag.get() == false);
+        assert!(!flag.get());
         drop(heaped);
-        assert!(flag.get() == true);
+        assert!(flag.get());
     }
 
     #[test]
