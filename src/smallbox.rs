@@ -197,7 +197,48 @@ impl<T: ?Sized, Space> SmallBox<T, Space> {
         }
     }
 
-    unsafe fn downcast_unchecked<U: Any>(self) -> SmallBox<U, Space> {
+    /// Allows casting a `SmallBox<T, _>` to `SmallBox <U, _>` from an arbitrary `T: ?Sized` (i.e.
+    /// not limited to `dyn Any`).  Note that [`SmallBox::<dyn Any, _>::downcast`](Self::downcast)
+    /// and [`SmallBox::<dyn Any + Send, _>::downcast`](struct.SmallBox.html#method.downcast-1) are
+    /// safe alternatives that require the use of `dyn Any`.  This method may be useful in
+    /// circumstances where `dyn Any` is not feasible, but the user would like to retrieve a
+    /// `U: Sized` from a `T: ?Sized` and the underlying type is known at compile time.
+    ///
+    /// # Safety
+    ///
+    /// This method is `unsafe` because the user must ensure that the underlying type is in fact
+    /// `U`.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use smallbox::space::*;
+    /// use smallbox::{smallbox, SmallBox};
+    /// use std::sync::mpsc::{channel, Sender};
+    ///
+    /// fn send<F>(f: F, tx: Sender<SmallBox<dyn Fn(), S4>>) -> Result<(), F>
+    /// where
+    ///     F: Fn() + 'static,
+    /// {
+    ///     let f: SmallBox<dyn Fn(), S4> = smallbox!(f);
+    ///     tx.send(f).map_err(|e|
+    ///         // Safety: we know the contained type is `F`
+    ///         unsafe {
+    ///             e.0.downcast_unchecked::<F>()
+    ///         }.into_inner())
+    /// }
+    ///
+    /// fn call(f: impl Fn()) {
+    ///     f()
+    /// }
+    ///
+    /// let f = || { println!("hello"); };
+    ///
+    /// let (tx, _) = channel();
+    /// let _ = send(f, tx).map_err(call);
+    ///
+    /// ```
+    pub unsafe fn downcast_unchecked<U>(self) -> SmallBox<U, Space> {
         let size = mem::size_of::<U>();
         let mut space = MaybeUninit::<Space>::uninit();
 
@@ -660,5 +701,40 @@ mod tests {
         let tester: SmallBox<_, S1> = SmallBox::new(vec![21, 56, 420]);
         let val = tester.into_inner();
         assert_eq!(val[1], 56);
+    }
+
+    #[test]
+    fn test_downcast_unchecked() {
+        use std::cell::Cell;
+        use std::fmt::Debug;
+
+        #[derive(Debug, Clone, PartialEq)]
+        struct Struct<'a, T>(&'a Cell<usize>, T);
+        impl<'a, T> Drop for Struct<'a, T> {
+            fn drop(&mut self) {
+                self.0.set(1 + self.0.get());
+            }
+        }
+
+        fn box_and_downcast<T: Debug>(item: T, is_heap: bool) -> T {
+            let bx: SmallBox<dyn Debug, S2> = smallbox!(item);
+            assert!(bx.is_heap() == is_heap);
+            unsafe { bx.downcast_unchecked::<T>() }.into_inner()
+        }
+
+        let n = Cell::new(0);
+
+        let item = Struct(&n, 1);
+        assert!(n.get() == 0);
+        assert_eq!(item, box_and_downcast(item.clone(), false));
+        assert!(n.get() == 1);
+
+        let item = Struct(&n, [1usize, 2]);
+        assert!(n.get() == 1);
+        assert_eq!(item, box_and_downcast(item.clone(), true));
+        assert!(n.get() == 2);
+
+        drop(item);
+        assert!(n.get() == 3);
     }
 }
