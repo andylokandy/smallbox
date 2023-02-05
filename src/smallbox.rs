@@ -413,9 +413,6 @@ impl<T: ?Sized + PartialEq, Space> PartialEq for SmallBox<T, Space> {
     fn eq(&self, other: &SmallBox<T, Space>) -> bool {
         PartialEq::eq(&**self, &**other)
     }
-    fn ne(&self, other: &SmallBox<T, Space>) -> bool {
-        PartialEq::ne(&**self, &**other)
-    }
 }
 
 impl<T: ?Sized + PartialOrd, Space> PartialOrd for SmallBox<T, Space> {

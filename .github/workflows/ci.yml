@@ -17,9 +17,21 @@ jobs:
       matrix:
         include:
           - rust: 1.36.0 # MSRV
+            features: ""
+          - rust: 1.36.0 # MSRV
+            features: "std"
           - rust: stable
-          - rust: beta
+            features: ""
+          - rust: stable
+            features: "std"
           - rust: nightly
+            features: ""
+          - rust: nightly
+            features: "std"
+          - rust: nightly
+            features: "std, coerce"
+          - rust: nightly
+            features: "coerce"
 
     steps:
       - uses: actions/checkout@v2
@@ -30,9 +42,7 @@ jobs:
           override: true
       - name: Tests
         run: |
-          cargo test --verbose --no-default-features
-          cargo test --verbose --no-default-features --features "std"
-          cargo test --verbose --no-default-features --features "std,coerce"
+          cargo test --verbose --no-default-features --features ${{ matrix.features }}
 
   miri:
     runs-on: ubuntu-latest
