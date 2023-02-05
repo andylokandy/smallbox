@@ -150,12 +150,8 @@
 //! will be stored in the heap.
 
 #![cfg_attr(feature = "coerce", feature(unsize, coerce_unsized))]
-#![cfg_attr(not(feature = "std"), feature(cfg_doctest))]
-#![cfg_attr(all(not(feature = "std"), doctest), no_std)]
 
-#[cfg(not(any(feature = "std", doctest)))]
 extern crate alloc;
-#[cfg(all(not(feature = "std"), doctest))]
 extern crate core as std;
 
 mod smallbox;

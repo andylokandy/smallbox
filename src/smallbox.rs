@@ -7,10 +7,7 @@ use std::mem::{self, MaybeUninit};
 use std::ops;
 use std::ptr;
 
-#[cfg(not(any(feature = "std", doctest)))]
 use ::alloc::alloc::{self, Layout};
-#[cfg(any(feature = "std", doctest))]
-use std::alloc::{self, Layout};
 
 #[cfg(feature = "coerce")]
 use std::marker::Unsize;
