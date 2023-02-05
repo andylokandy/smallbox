@@ -17,15 +17,15 @@ jobs:
       matrix:
         include:
           - rust: 1.36.0 # MSRV
-            features: ""
+            features: "\"\""
           - rust: 1.36.0 # MSRV
             features: "std"
           - rust: stable
-            features: ""
+            features: "\"\""
           - rust: stable
             features: "std"
           - rust: nightly
-            features: ""
+            features: "\"\""
           - rust: nightly
             features: "std"
           - rust: nightly
