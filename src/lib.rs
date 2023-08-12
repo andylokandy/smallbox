@@ -150,6 +150,8 @@
 //! will be stored in the heap.
 
 #![cfg_attr(feature = "coerce", feature(unsize, coerce_unsized))]
+#![feature(strict_provenance)]
+#![feature(set_ptr_value)]
 
 extern crate alloc;
 extern crate core as std;

@@ -5,11 +5,11 @@ authors = ["andylokandy"]
 description = "`Small Box` optimization: store small item on stack and fallback to heap for large item."
 repository = "https://github.com/andylokandy/smallbox"
 documentation = "https://andylokandy.github.io/smallbox"
-catagory = "data-structures"
+categories = ["data-structures"]
 readme = "README.md"
 keywords = ["box", "alloc", "dst", "stack", "no_std"]
 license = "MIT"
-edition = "2018"
+edition = "2021"
 
 [features]
 default = ["std"]

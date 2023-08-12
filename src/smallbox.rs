@@ -129,7 +129,7 @@ impl<T: ?Sized, Space> SmallBox<T, Space> {
                     _phantom: PhantomData,
                 }
             } else {
-                let val: &T = &*self;
+                let val: &T = &self;
                 SmallBox::<T, ToSpace>::new_copy(val, val as *const T)
             };
 
@@ -167,23 +167,21 @@ impl<T: ?Sized, Space> SmallBox<T, Space> {
 
         let mut space = MaybeUninit::<Space>::uninit();
 
-        let (ptr_addr, ptr_copy): (*const u8, *mut u8) = if size == 0 {
-            (ptr::null(), align as *mut u8)
+        let (ptr_addr, ptr_copy): (usize, *mut u8) = if size == 0 {
+            (0, ptr::null_mut::<u8>().with_addr(align))
         } else if size > mem::size_of::<Space>() || align > mem::align_of::<Space>() {
             // Heap
             let layout = Layout::for_value::<U>(val);
             let heap_ptr = alloc::alloc(layout);
 
-            (heap_ptr, heap_ptr)
+            (heap_ptr as usize, heap_ptr)
         } else {
             // Stack
-            (ptr::null(), space.as_mut_ptr() as *mut u8)
+            (0, space.as_mut_ptr() as *mut u8)
         };
 
         // Overwrite the pointer but retain any extra data inside the fat pointer.
-        let mut ptr = ptr;
-        let ptr_ptr = &mut ptr as *mut _ as *mut usize;
-        ptr_ptr.write(ptr_addr as usize);
+        let ptr = ptr_copy.with_addr(ptr_addr).with_metadata_of(ptr);
 
         ptr::copy_nonoverlapping(val as *const _ as *const u8, ptr_copy, size);
 
@@ -219,28 +217,20 @@ impl<T: ?Sized, Space> SmallBox<T, Space> {
 
     #[inline]
     unsafe fn as_ptr(&self) -> *const T {
-        let mut ptr = self.ptr;
-
-        if !self.is_heap() {
-            // Overwrite the pointer but retain any extra data inside the fat pointer.
-            let ptr_ptr = &mut ptr as *mut _ as *mut usize;
-            ptr_ptr.write(self.space.as_ptr() as *const () as usize);
+        if self.is_heap() {
+            self.ptr
+        } else {
+            self.space.as_ptr().with_metadata_of(self.ptr)
         }
-
-        ptr
     }
 
     #[inline]
     unsafe fn as_mut_ptr(&mut self) -> *mut T {
-        let mut ptr = self.ptr;
-
-        if !self.is_heap() {
-            // Overwrite the pointer but retain any extra data inside the fat pointer.
-            let ptr_ptr = &mut ptr as *mut _ as *mut usize;
-            ptr_ptr.write(self.space.as_mut_ptr() as *mut () as usize);
+        if self.is_heap() {
+            self.ptr as *mut _
+        } else {
+            self.space.as_mut_ptr().with_metadata_of(self.ptr)
         }
-
-        ptr as *mut _
     }
 
     /// Consumes the SmallBox and returns ownership of the boxed value
@@ -383,7 +373,7 @@ where
     T: Sized,
 {
     fn clone(&self) -> Self {
-        let val: &T = &*self;
+        let val: &T = self;
         SmallBox::new(val.clone())
     }
 }
@@ -545,16 +535,16 @@ mod tests {
         let flag = Cell::new(false);
         let stacked: SmallBox<_, S2> = SmallBox::new(Struct(&flag, 0));
         assert!(!stacked.is_heap());
-        assert!(flag.get() == false);
+        assert!(!flag.get());
         drop(stacked);
-        assert!(flag.get() == true);
+        assert!(flag.get());
 
         let flag = Cell::new(false);
         let heaped: SmallBox<_, S1> = SmallBox::new(Struct(&flag, 0));
         assert!(heaped.is_heap());
-        assert!(flag.get() == false);
+        assert!(!flag.get());
         drop(heaped);
-        assert!(flag.get() == true);
+        assert!(flag.get());
     }
 
     #[test]
