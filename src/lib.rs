@@ -63,8 +63,8 @@
 //! Eliminate heap alloction for small items by `SmallBox`:
 //!
 //! ```rust
-//! use smallbox::SmallBox;
 //! use smallbox::space::S4;
+//! use smallbox::SmallBox;
 //!
 //! let small: SmallBox<_, S4> = SmallBox::new([0; 2]);
 //! let large: SmallBox<_, S4> = SmallBox::new([0; 32]);
@@ -88,8 +88,8 @@
 //! extern crate smallbox;
 //!
 //! # fn main() {
-//! use smallbox::SmallBox;
 //! use smallbox::space::*;
+//! use smallbox::SmallBox;
 //!
 //! let array: SmallBox<[usize], S2> = smallbox!([0usize, 1]);
 //!
@@ -103,9 +103,9 @@
 //! ```rust
 //! # #[cfg(feature = "coerce")]
 //! # {
-//! use smallbox::SmallBox;
 //! use smallbox::space::*;
-//!  
+//! use smallbox::SmallBox;
+//!
 //! let array: SmallBox<[usize], S2> = SmallBox::new([0usize, 1]);
 //!
 //! assert_eq!(array.len(), 2);
@@ -121,8 +121,9 @@
 //!
 //! # fn main() {
 //! use std::any::Any;
-//! use smallbox::SmallBox;
+//!
 //! use smallbox::space::S2;
+//! use smallbox::SmallBox;
 //!
 //! let num: SmallBox<dyn Any, S2> = smallbox!(1234u32);
 //!
@@ -150,9 +151,9 @@
 //! will be stored in the heap.
 
 #![cfg_attr(feature = "coerce", feature(unsize, coerce_unsized))]
+#![cfg_attr(not(feature = "std"), no_std)]
 
 extern crate alloc;
-extern crate core as std;
 
 mod smallbox;
 pub mod space;

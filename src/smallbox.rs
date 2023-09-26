@@ -1,18 +1,20 @@
-use std::any::Any;
-use std::cmp::Ordering;
-use std::fmt;
-use std::hash::{self, Hash};
-use std::marker::PhantomData;
-use std::mem::{self, MaybeUninit};
-use std::ops;
-use std::ptr;
-
-use ::alloc::alloc::{self, Layout};
-
+use core::any::Any;
+use core::cmp::Ordering;
+use core::fmt;
+use core::hash::Hash;
+use core::hash::{self};
+use core::marker::PhantomData;
 #[cfg(feature = "coerce")]
-use std::marker::Unsize;
+use core::marker::Unsize;
+use core::mem::MaybeUninit;
+use core::mem::{self};
+use core::ops;
 #[cfg(feature = "coerce")]
-use std::ops::CoerceUnsized;
+use core::ops::CoerceUnsized;
+use core::ptr;
+
+use ::alloc::alloc::Layout;
+use ::alloc::alloc;
 
 #[cfg(feature = "coerce")]
 impl<T: ?Sized + Unsize<U>, U: ?Sized, Space> CoerceUnsized<SmallBox<U, Space>>
@@ -36,8 +38,8 @@ impl<T: ?Sized + Unsize<U>, U: ?Sized, Space> CoerceUnsized<SmallBox<U, Space>>
 /// extern crate smallbox;
 ///
 /// # fn main() {
-/// use smallbox::SmallBox;
 /// use smallbox::space::*;
+/// use smallbox::SmallBox;
 ///
 /// let small: SmallBox<[usize], S4> = smallbox!([0usize; 2]);
 /// let large: SmallBox<[usize], S4> = smallbox!([1usize; 8]);
@@ -73,8 +75,8 @@ impl<T: ?Sized, Space> SmallBox<T, Space> {
     /// # Example
     ///
     /// ```
-    /// use smallbox::SmallBox;
     /// use smallbox::space::*;
+    /// use smallbox::SmallBox;
     ///
     /// let small: SmallBox<_, S4> = SmallBox::new([0usize; 2]);
     /// let large: SmallBox<_, S4> = SmallBox::new([1usize; 8]);
@@ -86,18 +88,14 @@ impl<T: ?Sized, Space> SmallBox<T, Space> {
     /// ```
     #[inline(always)]
     pub fn new(val: T) -> SmallBox<T, Space>
-    where
-        T: Sized,
-    {
+    where T: Sized {
         smallbox!(val)
     }
 
     #[doc(hidden)]
     #[inline]
     pub unsafe fn new_unchecked<U>(val: U, ptr: *const T) -> SmallBox<T, Space>
-    where
-        U: Sized,
-    {
+    where U: Sized {
         let result = Self::new_copy(&val, ptr);
         mem::forget(val);
         result
@@ -112,11 +110,12 @@ impl<T: ?Sized, Space> SmallBox<T, Space> {
     /// # Example
     ///
     /// ```
+    /// use smallbox::space::S2;
+    /// use smallbox::space::S4;
     /// use smallbox::SmallBox;
-    /// use smallbox::space::{S2, S4};
     ///
-    /// let s: SmallBox::<_, S4> = SmallBox::new([0usize; 4]);
-    /// let m: SmallBox::<_, S2> = s.resize();
+    /// let s: SmallBox<_, S4> = SmallBox::new([0usize; 4]);
+    /// let m: SmallBox<_, S2> = s.resize();
     /// ```
     pub fn resize<ToSpace>(self) -> SmallBox<T, ToSpace> {
         unsafe {
@@ -144,13 +143,13 @@ impl<T: ?Sized, Space> SmallBox<T, Space> {
     /// # Example
     ///
     /// ```
-    /// use smallbox::SmallBox;
     /// use smallbox::space::S1;
+    /// use smallbox::SmallBox;
     ///
-    /// let stacked: SmallBox::<usize, S1> = SmallBox::new(0usize);
+    /// let stacked: SmallBox<usize, S1> = SmallBox::new(0usize);
     /// assert!(!stacked.is_heap());
     ///
-    /// let heaped: SmallBox::<(usize, usize), S1> = SmallBox::new((0usize, 1usize));
+    /// let heaped: SmallBox<(usize, usize), S1> = SmallBox::new((0usize, 1usize));
     /// assert!(heaped.is_heap());
     /// ```
     #[inline]
@@ -159,9 +158,7 @@ impl<T: ?Sized, Space> SmallBox<T, Space> {
     }
 
     unsafe fn new_copy<U>(val: &U, ptr: *const T) -> SmallBox<T, Space>
-    where
-        U: ?Sized,
-    {
+    where U: ?Sized {
         let size = mem::size_of_val::<U>(val);
         let align = mem::align_of_val::<U>(val);
 
@@ -247,22 +244,20 @@ impl<T: ?Sized, Space> SmallBox<T, Space> {
     ///
     /// # Examples
     /// ```
-    /// use smallbox::SmallBox;
     /// use smallbox::space::S1;
+    /// use smallbox::SmallBox;
     ///
-    /// let stacked : SmallBox<_, S1> = SmallBox::new([21usize]);
+    /// let stacked: SmallBox<_, S1> = SmallBox::new([21usize]);
     /// let val = stacked.into_inner();
     /// assert_eq!(val[0], 21);
     ///
-    /// let boxed : SmallBox<_, S1> = SmallBox::new(vec![21, 56, 420]);
+    /// let boxed: SmallBox<_, S1> = SmallBox::new(vec![21, 56, 420]);
     /// let val = boxed.into_inner();
     /// assert_eq!(val[1], 56);
     /// ```
     #[inline]
     pub fn into_inner(self) -> T
-    where
-        T: Sized,
-    {
+    where T: Sized {
         let ret_val: T = unsafe { self.as_ptr().read() };
 
         // Just drops the heap without dropping the boxed value
@@ -288,9 +283,10 @@ impl<Space> SmallBox<dyn Any, Space> {
     /// extern crate smallbox;
     ///
     /// # fn main() {
-    /// use std::any::Any;
-    /// use smallbox::SmallBox;
+    /// use core::any::Any;
+    ///
     /// use smallbox::space::*;
+    /// use smallbox::SmallBox;
     ///
     /// fn print_if_string(value: SmallBox<dyn Any, S1>) {
     ///     if let Ok(string) = value.downcast::<String>() {
@@ -325,9 +321,10 @@ impl<Space> SmallBox<dyn Any + Send, Space> {
     /// extern crate smallbox;
     ///
     /// # fn main() {
-    /// use std::any::Any;
-    /// use smallbox::SmallBox;
+    /// use core::any::Any;
+    ///
     /// use smallbox::space::*;
+    /// use smallbox::SmallBox;
     ///
     /// fn print_if_string(value: SmallBox<dyn Any, S1>) {
     ///     if let Ok(string) = value.downcast::<String>() {
@@ -379,8 +376,7 @@ impl<T: ?Sized, Space> ops::Drop for SmallBox<T, Space> {
 }
 
 impl<T: Clone, Space> Clone for SmallBox<T, Space>
-where
-    T: Sized,
+where T: Sized
 {
     fn clone(&self) -> Self {
         let val: &T = &*self;
@@ -452,9 +448,13 @@ unsafe impl<T: ?Sized + Sync, Space> Sync for SmallBox<T, Space> {}
 
 #[cfg(test)]
 mod tests {
+    use core::any::Any;
+
+    use ::alloc::boxed::Box;
+    use ::alloc::vec;
+
     use super::SmallBox;
     use crate::space::*;
-    use std::any::Any;
 
     #[test]
     fn test_basic() {
@@ -533,7 +533,7 @@ mod tests {
 
     #[test]
     fn test_drop() {
-        use std::cell::Cell;
+        use core::cell::Cell;
 
         struct Struct<'a>(&'a Cell<bool>, u8);
         impl<'a> Drop for Struct<'a> {
