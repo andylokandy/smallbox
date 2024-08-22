@@ -22,6 +22,10 @@ fn layout_broken(what: &str) {
     );
 }
 
+/// Tests some layout assumptions, these cases as of now:
+///
+/// 1. data pointer and vtable pointer location of trait objects
+/// 2. data pointer and size location of slice objects
 fn test_ptr_layouts() {
     // Test for dyn object
     {
@@ -64,5 +68,9 @@ fn test_ptr_layouts() {
 }
 
 fn main() {
+    // NOTE: this will not protect from every possible case,
+    // for example, rust may add one more fat pointer type which this test
+    // will not check, host layout may be different from target layout,
+    // and probably more.
     test_ptr_layouts();
 }
