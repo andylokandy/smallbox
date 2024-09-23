@@ -97,9 +97,8 @@ impl<T: ?Sized, Space> SmallBox<T, Space> {
     #[inline]
     pub unsafe fn new_unchecked<U>(val: U, ptr: *const T) -> SmallBox<T, Space>
     where U: Sized {
-        let result = Self::new_copy(&val, ptr);
-        mem::forget(val);
-        result
+        let val = ManuallyDrop::new(val);
+        Self::new_copy(&val, ptr)
     }
 
     /// Change the capacity of `SmallBox`.
@@ -119,23 +118,19 @@ impl<T: ?Sized, Space> SmallBox<T, Space> {
     /// let m: SmallBox<_, S2> = s.resize();
     /// ```
     pub fn resize<ToSpace>(self) -> SmallBox<T, ToSpace> {
-        unsafe {
-            let result = if self.is_heap() {
-                // don't change anything if data is already on heap
-                let space = MaybeUninit::<ToSpace>::uninit();
-                SmallBox {
-                    space,
-                    ptr: self.ptr,
-                    _phantom: PhantomData,
-                }
-            } else {
-                let val: &T = &self;
-                SmallBox::<T, ToSpace>::new_copy(val, val as *const T)
-            };
+        let this = ManuallyDrop::new(self);
 
-            mem::forget(self);
-
-            result
+        if this.is_heap() {
+            // don't change anything if data is already on heap
+            let space = MaybeUninit::<ToSpace>::uninit();
+            SmallBox {
+                space,
+                ptr: this.ptr,
+                _phantom: PhantomData,
+            }
+        } else {
+            let val: &T = &this;
+            unsafe { SmallBox::<T, ToSpace>::new_copy(val, val as *const T) }
         }
     }
 
