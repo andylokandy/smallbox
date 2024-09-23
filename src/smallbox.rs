@@ -132,7 +132,7 @@ impl<T: ?Sized, Space> SmallBox<T, Space> {
             }
         } else {
             let val: &T = &this;
-            unsafe { SmallBox::<T, ToSpace>::new_copy(val, ptr::from_ref(val)) }
+            unsafe { SmallBox::<T, ToSpace>::new_copy(val, sptr::from_ref(val)) }
         }
     }
 
@@ -178,7 +178,7 @@ impl<T: ?Sized, Space> SmallBox<T, Space> {
         // `self.ptr` always holds the metadata, even if stack allocated
         let ptr = sptr::with_metadata_of_mut(ptr_this, metadata_ptr);
 
-        ptr::copy_nonoverlapping(ptr::from_ref(val).cast(), val_dst, size);
+        ptr::copy_nonoverlapping(sptr::from_ref(val).cast(), val_dst, size);
 
         SmallBox {
             space,
