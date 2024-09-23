@@ -149,9 +149,10 @@
 //! Please note that the space alignment is also important. If the alignment
 //! of the space is smaller than the alignment of the value, the value
 //! will be stored in the heap.
-
+#![feature(strict_provenance, set_ptr_value)]
 #![cfg_attr(feature = "coerce", feature(unsize, coerce_unsized))]
 #![cfg_attr(not(feature = "std"), no_std)]
+#![deny(clippy::as_conversions)]
 
 extern crate alloc;
 

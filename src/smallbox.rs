@@ -55,7 +55,7 @@ impl<T: ?Sized + Unsize<U>, U: ?Sized, Space> CoerceUnsized<SmallBox<U, Space>>
 macro_rules! smallbox {
     ( $e: expr ) => {{
         let val = $e;
-        let ptr = &val as *const _;
+        let ptr = ::core::ptr::addr_of!(val);
         #[allow(unsafe_code)]
         unsafe {
             $crate::SmallBox::new_unchecked(val, ptr)
@@ -66,7 +66,7 @@ macro_rules! smallbox {
 /// An optimized box that store value on stack or on heap depending on its size
 pub struct SmallBox<T: ?Sized, Space> {
     space: MaybeUninit<Space>,
-    ptr: *const T,
+    ptr: *mut T,
     _phantom: PhantomData<T>,
 }
 
@@ -130,7 +130,7 @@ impl<T: ?Sized, Space> SmallBox<T, Space> {
             }
         } else {
             let val: &T = &this;
-            unsafe { SmallBox::<T, ToSpace>::new_copy(val, val as *const T) }
+            unsafe { SmallBox::<T, ToSpace>::new_copy(val, ptr::from_ref(val)) }
         }
     }
 
@@ -153,15 +153,15 @@ impl<T: ?Sized, Space> SmallBox<T, Space> {
         !self.ptr.is_null()
     }
 
-    unsafe fn new_copy<U>(val: &U, ptr: *const T) -> SmallBox<T, Space>
+    unsafe fn new_copy<U>(val: &U, metadata_ptr: *const T) -> SmallBox<T, Space>
     where U: ?Sized {
         let size = mem::size_of_val::<U>(val);
         let align = mem::align_of_val::<U>(val);
 
         let mut space = MaybeUninit::<Space>::uninit();
 
-        let (ptr_addr, ptr_copy): (*const u8, *mut u8) = if size == 0 {
-            (ptr::null(), align as *mut u8)
+        let (ptr_this, val_dst): (*mut u8, *mut u8) = if size == 0 {
+            (ptr::null_mut(), ptr::without_provenance_mut(align))
         } else if size > mem::size_of::<Space>() || align > mem::align_of::<Space>() {
             // Heap
             let layout = Layout::for_value::<U>(val);
@@ -170,15 +170,13 @@ impl<T: ?Sized, Space> SmallBox<T, Space> {
             (heap_ptr, heap_ptr)
         } else {
             // Stack
-            (ptr::null(), space.as_mut_ptr() as *mut u8)
+            (ptr::null_mut(), space.as_mut_ptr().cast())
         };
 
-        // Overwrite the pointer but retain any extra data inside the fat pointer.
-        let mut ptr = ptr;
-        let ptr_ptr = &mut ptr as *mut _ as *mut usize;
-        ptr_ptr.write(ptr_addr as usize);
+        // `self.ptr` always holds the metadata, even if stack allocated
+        let ptr = ptr_this.with_metadata_of(metadata_ptr);
 
-        ptr::copy_nonoverlapping(val as *const _ as *const u8, ptr_copy, size);
+        ptr::copy_nonoverlapping(ptr::from_ref(val).cast(), val_dst, size);
 
         SmallBox {
             space,
@@ -192,14 +190,14 @@ impl<T: ?Sized, Space> SmallBox<T, Space> {
         let mut space = MaybeUninit::<Space>::uninit();
 
         if !self.is_heap() {
-            ptr::copy_nonoverlapping(
-                self.space.as_ptr() as *const u8,
-                space.as_mut_ptr() as *mut u8,
+            ptr::copy_nonoverlapping::<u8>(
+                self.space.as_ptr().cast(),
+                space.as_mut_ptr().cast(),
                 size,
             );
         };
 
-        let ptr = self.ptr as *const U;
+        let ptr = self.ptr.cast();
 
         mem::forget(self);
 
@@ -212,28 +210,20 @@ impl<T: ?Sized, Space> SmallBox<T, Space> {
 
     #[inline]
     unsafe fn as_ptr(&self) -> *const T {
-        let mut ptr = self.ptr;
-
-        if !self.is_heap() {
-            // Overwrite the pointer but retain any extra data inside the fat pointer.
-            let ptr_ptr = &mut ptr as *mut _ as *mut usize;
-            ptr_ptr.write(self.space.as_ptr() as *const () as usize);
+        if self.is_heap() {
+            self.ptr
+        } else {
+            self.space.as_ptr().with_metadata_of(self.ptr)
         }
-
-        ptr
     }
 
     #[inline]
     unsafe fn as_mut_ptr(&mut self) -> *mut T {
-        let mut ptr = self.ptr;
-
-        if !self.is_heap() {
-            // Overwrite the pointer but retain any extra data inside the fat pointer.
-            let ptr_ptr = &mut ptr as *mut _ as *mut usize;
-            ptr_ptr.write(self.space.as_mut_ptr() as *mut () as usize);
+        if self.is_heap() {
+            self.ptr
+        } else {
+            self.space.as_mut_ptr().with_metadata_of(self.ptr)
         }
-
-        ptr as *mut _
     }
 
     /// Consumes the SmallBox and returns ownership of the boxed value
@@ -261,7 +251,7 @@ impl<T: ?Sized, Space> SmallBox<T, Space> {
         if this.is_heap() {
             let layout = Layout::new::<T>();
             unsafe {
-                alloc::dealloc(this.ptr as *mut u8, layout);
+                alloc::dealloc(this.ptr.cast(), layout);
             }
         }
 
@@ -365,7 +355,7 @@ impl<T: ?Sized, Space> ops::Drop for SmallBox<T, Space> {
             let layout = Layout::for_value::<T>(&*self);
             ptr::drop_in_place::<T>(&mut **self);
             if self.is_heap() {
-                alloc::dealloc(self.ptr as *mut u8, layout);
+                alloc::dealloc(self.ptr.cast(), layout);
             }
         }
     }
@@ -445,6 +435,7 @@ unsafe impl<T: ?Sized + Sync, Space> Sync for SmallBox<T, Space> {}
 #[cfg(test)]
 mod tests {
     use core::any::Any;
+    use core::ptr::addr_of;
 
     use ::alloc::boxed::Box;
     use ::alloc::vec;
@@ -464,7 +455,7 @@ mod tests {
     #[test]
     fn test_new_unchecked() {
         let val = [0usize, 1];
-        let ptr = &val as *const _;
+        let ptr = addr_of!(val);
 
         unsafe {
             let stacked: SmallBox<[usize], S2> = SmallBox::new_unchecked(val, ptr);
@@ -473,7 +464,7 @@ mod tests {
         }
 
         let val = [0usize, 1, 2];
-        let ptr = &val as *const _;
+        let ptr = addr_of!(val);
 
         unsafe {
             let heaped: SmallBox<dyn Any, S2> = SmallBox::new_unchecked(val, ptr);
