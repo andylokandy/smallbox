@@ -48,6 +48,11 @@
 //!   - Require nightly rust
 //!   - Allow automatic coersion from sized `SmallBox` to unsized `SmallBox`.
 //!
+//! - `nightly`
+//!   - Optional
+//!   - Enables `coerce`
+//!   - Requires nightly rust
+//!   - Uses strict provenance operations to be compatible with `miri`
 //!
 //! # Unsized Type
 //!
@@ -149,7 +154,7 @@
 //! Please note that the space alignment is also important. If the alignment
 //! of the space is smaller than the alignment of the value, the value
 //! will be stored in the heap.
-#![feature(strict_provenance, set_ptr_value)]
+#![cfg_attr(feature = "nightly", feature(strict_provenance, set_ptr_value))]
 #![cfg_attr(feature = "coerce", feature(unsize, coerce_unsized))]
 #![cfg_attr(not(feature = "std"), no_std)]
 #![deny(clippy::as_conversions)]
@@ -158,5 +163,6 @@ extern crate alloc;
 
 mod smallbox;
 pub mod space;
+mod sptr;
 
 pub use crate::smallbox::SmallBox;

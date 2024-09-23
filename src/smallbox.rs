@@ -17,6 +17,8 @@ use core::ptr;
 use ::alloc::alloc;
 use ::alloc::alloc::Layout;
 
+use crate::sptr;
+
 #[cfg(feature = "coerce")]
 impl<T: ?Sized + Unsize<U>, U: ?Sized, Space> CoerceUnsized<SmallBox<U, Space>>
     for SmallBox<T, Space>
@@ -161,7 +163,7 @@ impl<T: ?Sized, Space> SmallBox<T, Space> {
         let mut space = MaybeUninit::<Space>::uninit();
 
         let (ptr_this, val_dst): (*mut u8, *mut u8) = if size == 0 {
-            (ptr::null_mut(), ptr::without_provenance_mut(align))
+            (ptr::null_mut(), sptr::without_provenance_mut(align))
         } else if size > mem::size_of::<Space>() || align > mem::align_of::<Space>() {
             // Heap
             let layout = Layout::for_value::<U>(val);
@@ -174,7 +176,7 @@ impl<T: ?Sized, Space> SmallBox<T, Space> {
         };
 
         // `self.ptr` always holds the metadata, even if stack allocated
-        let ptr = ptr_this.with_metadata_of(metadata_ptr);
+        let ptr = sptr::with_metadata_of_mut(ptr_this, metadata_ptr);
 
         ptr::copy_nonoverlapping(ptr::from_ref(val).cast(), val_dst, size);
 
@@ -213,7 +215,7 @@ impl<T: ?Sized, Space> SmallBox<T, Space> {
         if self.is_heap() {
             self.ptr
         } else {
-            self.space.as_ptr().with_metadata_of(self.ptr)
+            sptr::with_metadata_of(self.space.as_ptr(), self.ptr)
         }
     }
 
@@ -222,7 +224,7 @@ impl<T: ?Sized, Space> SmallBox<T, Space> {
         if self.is_heap() {
             self.ptr
         } else {
-            self.space.as_mut_ptr().with_metadata_of(self.ptr)
+            sptr::with_metadata_of_mut(self.space.as_mut_ptr(), self.ptr)
         }
     }
 
