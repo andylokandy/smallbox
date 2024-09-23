@@ -9,9 +9,11 @@ categories = ["data-structures"]
 readme = "README.md"
 keywords = ["box", "alloc", "dst", "stack", "no_std"]
 license = "MIT"
+rust-version = "1.56"
 edition = "2021"
 
 [features]
 default = ["std"]
 std = []
 coerce = []
+nightly = ["coerce"]
