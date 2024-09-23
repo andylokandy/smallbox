@@ -6,6 +6,7 @@ use core::hash::{self};
 use core::marker::PhantomData;
 #[cfg(feature = "coerce")]
 use core::marker::Unsize;
+use core::mem::ManuallyDrop;
 use core::mem::MaybeUninit;
 use core::mem::{self};
 use core::ops;
@@ -258,16 +259,16 @@ impl<T: ?Sized, Space> SmallBox<T, Space> {
     #[inline]
     pub fn into_inner(self) -> T
     where T: Sized {
-        let ret_val: T = unsafe { self.as_ptr().read() };
+        let this = ManuallyDrop::new(self);
+        let ret_val: T = unsafe { this.as_ptr().read() };
 
         // Just drops the heap without dropping the boxed value
-        if self.is_heap() {
+        if this.is_heap() {
             let layout = Layout::new::<T>();
             unsafe {
-                alloc::dealloc(self.ptr as *mut u8, layout);
+                alloc::dealloc(this.ptr as *mut u8, layout);
             }
         }
-        mem::forget(self);
 
         ret_val
     }
