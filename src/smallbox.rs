@@ -6,6 +6,7 @@ use core::hash::{self};
 use core::marker::PhantomData;
 #[cfg(feature = "coerce")]
 use core::marker::Unsize;
+use core::mem::ManuallyDrop;
 use core::mem::MaybeUninit;
 use core::mem::{self};
 use core::ops;
@@ -13,8 +14,8 @@ use core::ops;
 use core::ops::CoerceUnsized;
 use core::ptr;
 
-use ::alloc::alloc::Layout;
 use ::alloc::alloc;
+use ::alloc::alloc::Layout;
 
 #[cfg(feature = "coerce")]
 impl<T: ?Sized + Unsize<U>, U: ?Sized, Space> CoerceUnsized<SmallBox<U, Space>>
@@ -96,9 +97,8 @@ impl<T: ?Sized, Space> SmallBox<T, Space> {
     #[inline]
     pub unsafe fn new_unchecked<U>(val: U, ptr: *const T) -> SmallBox<T, Space>
     where U: Sized {
-        let result = Self::new_copy(&val, ptr);
-        mem::forget(val);
-        result
+        let val = ManuallyDrop::new(val);
+        Self::new_copy(&val, ptr)
     }
 
     /// Change the capacity of `SmallBox`.
@@ -118,23 +118,19 @@ impl<T: ?Sized, Space> SmallBox<T, Space> {
     /// let m: SmallBox<_, S2> = s.resize();
     /// ```
     pub fn resize<ToSpace>(self) -> SmallBox<T, ToSpace> {
-        unsafe {
-            let result = if self.is_heap() {
-                // don't change anything if data is already on heap
-                let space = MaybeUninit::<ToSpace>::uninit();
-                SmallBox {
-                    space,
-                    ptr: self.ptr,
-                    _phantom: PhantomData,
-                }
-            } else {
-                let val: &T = &*self;
-                SmallBox::<T, ToSpace>::new_copy(val, val as *const T)
-            };
+        let this = ManuallyDrop::new(self);
 
-            mem::forget(self);
-
-            result
+        if this.is_heap() {
+            // don't change anything if data is already on heap
+            let space = MaybeUninit::<ToSpace>::uninit();
+            SmallBox {
+                space,
+                ptr: this.ptr,
+                _phantom: PhantomData,
+            }
+        } else {
+            let val: &T = &this;
+            unsafe { SmallBox::<T, ToSpace>::new_copy(val, val as *const T) }
         }
     }
 
@@ -258,16 +254,16 @@ impl<T: ?Sized, Space> SmallBox<T, Space> {
     #[inline]
     pub fn into_inner(self) -> T
     where T: Sized {
-        let ret_val: T = unsafe { self.as_ptr().read() };
+        let this = ManuallyDrop::new(self);
+        let ret_val: T = unsafe { this.as_ptr().read() };
 
         // Just drops the heap without dropping the boxed value
-        if self.is_heap() {
+        if this.is_heap() {
             let layout = Layout::new::<T>();
             unsafe {
-                alloc::dealloc(self.ptr as *mut u8, layout);
+                alloc::dealloc(this.ptr as *mut u8, layout);
             }
         }
-        mem::forget(self);
 
         ret_val
     }
@@ -379,7 +375,7 @@ impl<T: Clone, Space> Clone for SmallBox<T, Space>
 where T: Sized
 {
     fn clone(&self) -> Self {
-        let val: &T = &*self;
+        let val: &T = self;
         SmallBox::new(val.clone())
     }
 }
@@ -535,6 +531,7 @@ mod tests {
     fn test_drop() {
         use core::cell::Cell;
 
+        #[allow(dead_code)]
         struct Struct<'a>(&'a Cell<bool>, u8);
         impl<'a> Drop for Struct<'a> {
             fn drop(&mut self) {
@@ -545,20 +542,21 @@ mod tests {
         let flag = Cell::new(false);
         let stacked: SmallBox<_, S2> = SmallBox::new(Struct(&flag, 0));
         assert!(!stacked.is_heap());
-        assert!(flag.get() == false);
+        assert!(!flag.get());
         drop(stacked);
-        assert!(flag.get() == true);
+        assert!(flag.get());
 
         let flag = Cell::new(false);
         let heaped: SmallBox<_, S1> = SmallBox::new(Struct(&flag, 0));
         assert!(heaped.is_heap());
-        assert!(flag.get() == false);
+        assert!(!flag.get());
         drop(heaped);
-        assert!(flag.get() == true);
+        assert!(flag.get());
     }
 
     #[test]
     fn test_dont_drop_space() {
+        #[allow(dead_code)]
         struct NoDrop(S1);
         impl Drop for NoDrop {
             fn drop(&mut self) {
