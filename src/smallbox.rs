@@ -72,6 +72,12 @@ pub struct SmallBox<T: ?Sized, Space> {
     _phantom: PhantomData<T>,
 }
 
+impl<T: Default, Space> Default for SmallBox<T, Space> {
+    fn default() -> Self {
+        Self::new(T::default())
+    }
+}
+
 impl<T: ?Sized, Space> SmallBox<T, Space> {
     /// Box value on stack or on heap depending on its size.
     ///
