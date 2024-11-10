@@ -659,7 +659,7 @@ mod tests {
 
     #[test]
     fn test_interior_mutability() {
-        use std::cell::Cell;
+        use core::cell::Cell;
         let cellbox = SmallBox::<Cell<u32>, S1>::new(Cell::new(0));
         assert!(!cellbox.is_heap());
         cellbox.set(1);
