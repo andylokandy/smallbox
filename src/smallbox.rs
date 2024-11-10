@@ -663,5 +663,6 @@ mod tests {
         let cellbox = SmallBox::<Cell<u32>, S1>::new(Cell::new(0));
         assert!(!cellbox.is_heap());
         cellbox.set(1);
+        assert_eq!(cellbox.get(), 1);
     }
 }
