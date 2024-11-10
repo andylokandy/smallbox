@@ -1,4 +1,5 @@
 use core::any::Any;
+use core::cell::UnsafeCell;
 use core::cmp::Ordering;
 use core::fmt;
 use core::hash::Hash;
@@ -67,7 +68,7 @@ macro_rules! smallbox {
 
 /// An optimized box that store value on stack or on heap depending on its size
 pub struct SmallBox<T: ?Sized, Space> {
-    space: MaybeUninit<Space>,
+    space: MaybeUninit<UnsafeCell<Space>>,
     ptr: *mut T,
     _phantom: PhantomData<T>,
 }
@@ -130,7 +131,7 @@ impl<T: ?Sized, Space> SmallBox<T, Space> {
 
         if this.is_heap() {
             // don't change anything if data is already on heap
-            let space = MaybeUninit::<ToSpace>::uninit();
+            let space = MaybeUninit::<UnsafeCell<ToSpace>>::uninit();
             SmallBox {
                 space,
                 ptr: this.ptr,
@@ -166,7 +167,7 @@ impl<T: ?Sized, Space> SmallBox<T, Space> {
         let size = mem::size_of_val::<U>(val);
         let align = mem::align_of_val::<U>(val);
 
-        let mut space = MaybeUninit::<Space>::uninit();
+        let mut space = MaybeUninit::<UnsafeCell<Space>>::uninit();
 
         let (ptr_this, val_dst): (*mut u8, *mut u8) = if size == 0 {
             (ptr::null_mut(), sptr::without_provenance_mut(align))
@@ -195,7 +196,7 @@ impl<T: ?Sized, Space> SmallBox<T, Space> {
 
     unsafe fn downcast_unchecked<U: Any>(self) -> SmallBox<U, Space> {
         let size = mem::size_of::<U>();
-        let mut space = MaybeUninit::<Space>::uninit();
+        let mut space = MaybeUninit::<UnsafeCell<Space>>::uninit();
 
         if !self.is_heap() {
             ptr::copy_nonoverlapping::<u8>(
@@ -654,5 +655,13 @@ mod tests {
         let tester: SmallBox<_, S1> = SmallBox::new(vec![21, 56, 420]);
         let val = tester.into_inner();
         assert_eq!(val[1], 56);
+    }
+
+    #[test]
+    fn test_interior_mutability() {
+        use std::cell::Cell;
+        let cellbox = SmallBox::<Cell<u32>, S1>::new(Cell::new(0));
+        assert!(!cellbox.is_heap());
+        cellbox.set(1);
     }
 }
