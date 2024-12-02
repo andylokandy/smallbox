@@ -69,7 +69,7 @@ macro_rules! smallbox {
 /// An optimized box that store value on stack or on heap depending on its size
 pub struct SmallBox<T: ?Sized, Space> {
     space: MaybeUninit<UnsafeCell<Space>>,
-    ptr: *mut T,
+    ptr: *const T,
     _phantom: PhantomData<T>,
 }
 
@@ -229,7 +229,7 @@ impl<T: ?Sized, Space> SmallBox<T, Space> {
     #[inline]
     unsafe fn as_mut_ptr(&mut self) -> *mut T {
         if self.is_heap() {
-            self.ptr
+            self.ptr as *mut T
         } else {
             sptr::with_metadata_of_mut(self.space.as_mut_ptr(), self.ptr)
         }
@@ -260,7 +260,7 @@ impl<T: ?Sized, Space> SmallBox<T, Space> {
         if this.is_heap() {
             let layout = Layout::new::<T>();
             unsafe {
-                alloc::dealloc(this.ptr.cast(), layout);
+                alloc::dealloc(this.ptr as *const u8 as *mut u8, layout);
             }
         }
 
@@ -364,7 +364,7 @@ impl<T: ?Sized, Space> ops::Drop for SmallBox<T, Space> {
             let layout = Layout::for_value::<T>(&*self);
             ptr::drop_in_place::<T>(&mut **self);
             if self.is_heap() {
-                alloc::dealloc(self.ptr.cast(), layout);
+                alloc::dealloc(self.ptr as *const u8 as *mut u8, layout);
             }
         }
     }
@@ -664,5 +664,13 @@ mod tests {
         assert!(!cellbox.is_heap());
         cellbox.set(1);
         assert_eq!(cellbox.get(), 1);
+    }
+
+    #[test]
+    fn test_variance() {
+        #[allow(dead_code)]
+        fn test<'short, 'long: 'short>(val: SmallBox<&'long str, S1>) -> SmallBox<&'short str, S1> {
+            val
+        }
     }
 }
