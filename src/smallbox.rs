@@ -2,6 +2,7 @@ use core::any::Any;
 use core::cell::UnsafeCell;
 use core::cmp::Ordering;
 use core::fmt;
+use core::future::Future;
 use core::hash::Hash;
 use core::hash::{self};
 use core::marker::PhantomData;
@@ -13,6 +14,7 @@ use core::mem::{self};
 use core::ops;
 #[cfg(feature = "coerce")]
 use core::ops::CoerceUnsized;
+use core::pin::Pin;
 use core::ptr;
 
 use ::alloc::alloc;
@@ -435,6 +437,26 @@ impl<T: ?Sized + Eq, Space> Eq for SmallBox<T, Space> {}
 impl<T: ?Sized + Hash, Space> Hash for SmallBox<T, Space> {
     fn hash<H: hash::Hasher>(&self, state: &mut H) {
         (**self).hash(state);
+    }
+}
+
+// We can implement Future for SmallBox soundly, even though it's not implemented for the std Box
+// The reason why it's not implemented for std Box is only because Box<T>: Unpin unconditionally,
+// even when T: !Unpin, which always allows to get &mut Box<T> from Pin<&mut Box<T>>.
+// For SmallBox, this is not the case, because it might carry the data on the stack, so if T: !Unpin,
+// SmallBox<T>: !Unpin also. That means you can't get &mut SmallBox<T> from Pin<&mut SmallBox<T>>
+// in safe code, so it's safe to implement Future for SmallBox directly.
+impl<F: Future + ?Sized, S> Future for SmallBox<F, S> {
+    type Output = F::Output;
+
+    fn poll(
+        self: Pin<&mut Self>,
+        cx: &mut core::task::Context<'_>,
+    ) -> core::task::Poll<Self::Output> {
+        // Safety: when the SmallBox is pinned, the data on the stack is pinned
+        // The data on the heap is also pinned naturally, and `F` is innacessible in safe code,
+        // so all Pin guarantees are satisfied.
+        unsafe { Pin::new_unchecked(&mut **self.get_unchecked_mut()) }.poll(cx)
     }
 }
 
