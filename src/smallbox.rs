@@ -42,8 +42,8 @@ impl<T: ?Sized + Unsize<U>, U: ?Sized, Space> CoerceUnsized<SmallBox<U, Space>>
 /// extern crate smallbox;
 ///
 /// # fn main() {
-/// use smallbox::space::*;
 /// use smallbox::SmallBox;
+/// use smallbox::space::*;
 ///
 /// let small: SmallBox<[usize], S4> = smallbox!([0usize; 2]);
 /// let large: SmallBox<[usize], S4> = smallbox!([1usize; 8]);
@@ -85,8 +85,8 @@ impl<T: ?Sized, Space> SmallBox<T, Space> {
     /// # Example
     ///
     /// ```
-    /// use smallbox::space::*;
     /// use smallbox::SmallBox;
+    /// use smallbox::space::*;
     ///
     /// let small: SmallBox<_, S4> = SmallBox::new([0usize; 2]);
     /// let large: SmallBox<_, S4> = SmallBox::new([1usize; 8]);
@@ -119,9 +119,9 @@ impl<T: ?Sized, Space> SmallBox<T, Space> {
     /// # Example
     ///
     /// ```
+    /// use smallbox::SmallBox;
     /// use smallbox::space::S2;
     /// use smallbox::space::S4;
-    /// use smallbox::SmallBox;
     ///
     /// let s: SmallBox<_, S4> = SmallBox::new([0usize; 4]);
     /// let m: SmallBox<_, S2> = s.resize();
@@ -148,8 +148,8 @@ impl<T: ?Sized, Space> SmallBox<T, Space> {
     /// # Example
     ///
     /// ```
-    /// use smallbox::space::S1;
     /// use smallbox::SmallBox;
+    /// use smallbox::space::S1;
     ///
     /// let stacked: SmallBox<usize, S1> = SmallBox::new(0usize);
     /// assert!(!stacked.is_heap());
@@ -239,8 +239,8 @@ impl<T: ?Sized, Space> SmallBox<T, Space> {
     ///
     /// # Examples
     /// ```
-    /// use smallbox::space::S1;
     /// use smallbox::SmallBox;
+    /// use smallbox::space::S1;
     ///
     /// let stacked: SmallBox<_, S1> = SmallBox::new([21usize]);
     /// let val = stacked.into_inner();
@@ -280,8 +280,8 @@ impl<Space> SmallBox<dyn Any, Space> {
     /// # fn main() {
     /// use core::any::Any;
     ///
-    /// use smallbox::space::*;
     /// use smallbox::SmallBox;
+    /// use smallbox::space::*;
     ///
     /// fn print_if_string(value: SmallBox<dyn Any, S1>) {
     ///     if let Ok(string) = value.downcast::<String>() {
@@ -318,8 +318,8 @@ impl<Space> SmallBox<dyn Any + Send, Space> {
     /// # fn main() {
     /// use core::any::Any;
     ///
-    /// use smallbox::space::*;
     /// use smallbox::SmallBox;
+    /// use smallbox::space::*;
     ///
     /// fn print_if_string(value: SmallBox<dyn Any, S1>) {
     ///     if let Ok(string) = value.downcast::<String>() {
