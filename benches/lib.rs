@@ -3,10 +3,10 @@
 extern crate smallbox;
 extern crate test;
 
-use smallbox::space::*;
 use smallbox::SmallBox;
-use test::black_box;
+use smallbox::space::*;
 use test::Bencher;
+use test::black_box;
 
 #[bench]
 fn smallbox_small_item_small_space(b: &mut Bencher) {
