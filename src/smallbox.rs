@@ -687,4 +687,10 @@ mod tests {
         cellbox.set(1);
         assert_eq!(cellbox.get(), 1);
     }
+
+    #[pollster::test]
+    async fn test_future() {
+        let boxed_fut: SmallBox<_, S1> = SmallBox::new(async { 123 });
+        assert_eq!(boxed_fut.await, 123);
+    }
 }
