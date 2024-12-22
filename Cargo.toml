@@ -19,4 +19,4 @@ coerce = []
 nightly = ["coerce"]
 
 [dev-dependencies]
-pollster = { version = "0.4.0", features = ["macro"] }
+futures = { version = "0.3", default-features = false, features = ["executor"] }
