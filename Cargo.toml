@@ -17,3 +17,6 @@ default = ["std"]
 std = []
 coerce = []
 nightly = ["coerce"]
+
+[dev-dependencies]
+futures = { version = "0.3", default-features = false, features = ["executor"] }

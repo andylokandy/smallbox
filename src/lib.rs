@@ -68,8 +68,8 @@
 //! Eliminate heap alloction for small items by `SmallBox`:
 //!
 //! ```rust
-//! use smallbox::space::S4;
 //! use smallbox::SmallBox;
+//! use smallbox::space::S4;
 //!
 //! let small: SmallBox<_, S4> = SmallBox::new([0; 2]);
 //! let large: SmallBox<_, S4> = SmallBox::new([0; 32]);
@@ -93,8 +93,8 @@
 //! extern crate smallbox;
 //!
 //! # fn main() {
-//! use smallbox::space::*;
 //! use smallbox::SmallBox;
+//! use smallbox::space::*;
 //!
 //! let array: SmallBox<[usize], S2> = smallbox!([0usize, 1]);
 //!
@@ -108,8 +108,8 @@
 //! ```rust
 //! # #[cfg(feature = "coerce")]
 //! # {
-//! use smallbox::space::*;
 //! use smallbox::SmallBox;
+//! use smallbox::space::*;
 //!
 //! let array: SmallBox<[usize], S2> = SmallBox::new([0usize, 1]);
 //!
@@ -127,8 +127,8 @@
 //! # fn main() {
 //! use std::any::Any;
 //!
-//! use smallbox::space::S2;
 //! use smallbox::SmallBox;
+//! use smallbox::space::S2;
 //!
 //! let num: SmallBox<dyn Any, S2> = smallbox!(1234u32);
 //!
