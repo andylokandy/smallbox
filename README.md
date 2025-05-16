@@ -1,6 +1,6 @@
 # `smallbox`
 
-[![Build Status](https://travis-ci.org/andylokandy/smallbox.svg?branch=master)](https://travis-ci.org/andylokandy/smallbox)
+[![CI Status](https://github.com/andylokandy/smallbox/actions/workflows/ci.yml/badge.svg)](https://github.com/andylokandy/smallbox/actions/workflows/ci.yml)
 [![crates.io](https://img.shields.io/crates/v/smallbox.svg)](https://crates.io/crates/smallbox)
 
 
