@@ -1,4 +1,3 @@
-use core::any::Any;
 use core::cell::UnsafeCell;
 use core::cmp::Ordering;
 use core::fmt;
@@ -17,6 +16,7 @@ use core::ops::CoerceUnsized;
 use core::pin::Pin;
 use core::ptr;
 use core::ptr::NonNull;
+use core::{any::Any, hint::unreachable_unchecked};
 
 use ::alloc::alloc;
 use ::alloc::alloc::Layout;
@@ -198,7 +198,7 @@ impl<T: ?Sized, Space> SmallBox<T, Space> {
             // Safety: MIN_ALIGNMENT is 2, aligning to 2 should not create an invalid layout
             let layout = Layout::for_value::<U>(val)
                 .align_to(MIN_ALIGNMENT)
-                .unwrap_unchecked();
+                .unwrap_or_else(|_| unreachable_unchecked());
             let heap_ptr = alloc::alloc(layout);
 
             if heap_ptr.is_null() {
@@ -295,7 +295,7 @@ impl<T: ?Sized, Space> SmallBox<T, Space> {
             let layout = unsafe {
                 Layout::new::<T>()
                     .align_to(MIN_ALIGNMENT)
-                    .unwrap_unchecked()
+                    .unwrap_or_else(|_| unreachable_unchecked())
             };
             unsafe {
                 alloc::dealloc(this.ptr.as_ptr() as *const u8 as *mut u8, layout);
@@ -401,7 +401,7 @@ impl<T: ?Sized, Space> ops::Drop for SmallBox<T, Space> {
         unsafe {
             let layout = Layout::for_value::<T>(&*self)
                 .align_to(MIN_ALIGNMENT)
-                .unwrap_unchecked();
+                .unwrap_or_else(|_| unreachable_unchecked());
 
             ptr::drop_in_place::<T>(&mut **self);
             if self.is_heap() {
