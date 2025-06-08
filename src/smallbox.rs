@@ -76,6 +76,7 @@ macro_rules! smallbox {
 /// An optimized box that store value on stack or on heap depending on its size
 pub struct SmallBox<T: ?Sized, Space> {
     space: MaybeUninit<UnsafeCell<Space>>,
+    // NonNull enables Null Pointer Optimization
     ptr: NonNull<T>,
     _phantom: PhantomData<T>,
 }
@@ -204,7 +205,7 @@ impl<T: ?Sized, Space> SmallBox<T, Space> {
 
         // `self.ptr` always holds the metadata, even if stack allocated
         let ptr = sptr::with_metadata_of_mut(ptr_this, metadata_ptr);
-        // Safety: is either an INLINE_SENTINEL or is returned from an allocator and is checked for null
+        // Safety: is either an INLINE_SENTINEL or is returned from the allocator and is checked for null
         let ptr = NonNull::new_unchecked(ptr);
 
         ptr::copy_nonoverlapping(sptr::from_ref(val).cast(), val_dst, size);
