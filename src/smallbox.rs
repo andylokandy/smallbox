@@ -713,7 +713,7 @@ mod tests {
     }
 
     #[test]
-    fn overaligned_zst() {
+    fn test_overaligned_zst() {
         #[repr(align(512))]
         #[derive(Debug, PartialEq, Eq)]
         struct OveralignedZst;
