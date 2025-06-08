@@ -178,7 +178,13 @@ impl<T: ?Sized, Space> SmallBox<T, Space> {
         let mut space = MaybeUninit::<UnsafeCell<Space>>::uninit();
 
         let (ptr_this, val_dst): (*mut u8, *mut u8) = if size == 0 {
-            (ptr::null_mut(), sptr::without_provenance_mut(align))
+            (
+                // using a dangling but well-aligned pointer for ptr_this allows us to use it
+                // when a reference to a ZST is needed
+                // returning a pointer to self.space won't do, since it is not guaranteed to be properly aligned
+                sptr::without_provenance_mut(align),
+                sptr::without_provenance_mut(align),
+            )
         } else if size > mem::size_of::<Space>() || align > mem::align_of::<Space>() {
             // Heap
             let layout = Layout::for_value::<U>(val);
@@ -267,7 +273,7 @@ impl<T: ?Sized, Space> SmallBox<T, Space> {
         let ret_val: T = unsafe { this.as_ptr().read() };
 
         // Just drops the heap without dropping the boxed value
-        if this.is_heap() {
+        if this.is_heap() && mem::size_of::<T>() != 0 {
             let layout = Layout::new::<T>();
             unsafe {
                 alloc::dealloc(this.ptr as *const u8 as *mut u8, layout);
@@ -373,7 +379,7 @@ impl<T: ?Sized, Space> ops::Drop for SmallBox<T, Space> {
         unsafe {
             let layout = Layout::for_value::<T>(&*self);
             ptr::drop_in_place::<T>(&mut **self);
-            if self.is_heap() {
+            if self.is_heap() && mem::size_of_val::<T>(&*self) != 0 {
                 alloc::dealloc(self.ptr as *const u8 as *mut u8, layout);
             }
         }
@@ -719,7 +725,23 @@ mod tests {
         struct OveralignedZst;
 
         let zst: SmallBox<OveralignedZst, S1> = smallbox!(OveralignedZst);
-
+        let zst_addr = addr_of!(*zst) as usize;
         assert_eq!(*zst, OveralignedZst);
+        assert_eq!(zst_addr % 512, 0);
+    }
+
+    #[test]
+    fn test_overaligned_zst_dyn() {
+        #[repr(align(512))]
+        #[derive(Debug, PartialEq, Eq)]
+        struct OveralignedZst;
+
+        trait Foo {}
+
+        impl Foo for OveralignedZst {}
+
+        let zst: SmallBox<dyn Foo, S1> = smallbox!(OveralignedZst);
+        let zst_addr = addr_of!(*zst) as *const () as usize;
+        assert_eq!(zst_addr % 512, 0);
     }
 }
