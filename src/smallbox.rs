@@ -505,8 +505,8 @@ unsafe impl<T: ?Sized + Sync, Space> Sync for SmallBox<T, Space> {}
 
 #[cfg(test)]
 mod tests {
-    use core::any::Any;
     use core::ptr::addr_of;
+    use core::{any::Any, mem};
 
     use ::alloc::boxed::Box;
     use ::alloc::vec;
@@ -746,8 +746,8 @@ mod tests {
     #[test]
     fn test_null_ptr_optimization() {
         assert_eq!(
-            size_of::<SmallBox<i32, S1>>(),
-            size_of::<Option<SmallBox<i32, S1>>>()
+            mem::size_of::<SmallBox<i32, S1>>(),
+            mem::size_of::<Option<SmallBox<i32, S1>>>()
         );
     }
 }
