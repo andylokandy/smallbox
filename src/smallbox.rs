@@ -1,4 +1,4 @@
-use core::any::Any;
+use core::{any::Any, mem::transmute};
 use core::cell::UnsafeCell;
 use core::cmp::Ordering;
 use core::fmt;
@@ -24,14 +24,22 @@ use ::alloc::alloc::handle_alloc_error;
 
 use crate::sptr;
 
+/// A sentinel pointer that signals that the value is stored on the stack
+///
+/// It is never supposed to be dereferenced
+const INLINE_SENTINEL: *mut u8 = 0x1 as *mut u8;
+
+/// Minimum alignment for allocations
+///
+/// Forcing a minimum alignment prevents the allocator 
+/// from returning a pointer with the same address as `INLINE_SENTINEL`
+const MIN_ALIGNMENT: usize = 2;
+
 #[cfg(feature = "coerce")]
 impl<T: ?Sized + Unsize<U>, U: ?Sized, Space> CoerceUnsized<SmallBox<U, Space>>
     for SmallBox<T, Space>
 {
 }
-
-const INLINE_SENTINEL: *mut u8 = 0x1 as *mut u8;
-const MIN_ALIGNMENT: usize = 2;
 
 /// Box value on stack or on heap depending on its size
 ///
