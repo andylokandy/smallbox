@@ -1,4 +1,4 @@
-use core::{any::Any, mem::transmute};
+use core::any::Any;
 use core::cell::UnsafeCell;
 use core::cmp::Ordering;
 use core::fmt;
@@ -31,7 +31,7 @@ const INLINE_SENTINEL: *mut u8 = 0x1 as *mut u8;
 
 /// Minimum alignment for allocations
 ///
-/// Forcing a minimum alignment prevents the allocator 
+/// Forcing a minimum alignment prevents the allocator
 /// from returning a pointer with the same address as `INLINE_SENTINEL`
 const MIN_ALIGNMENT: usize = 2;
 
