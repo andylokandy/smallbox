@@ -410,7 +410,7 @@ impl<T: ?Sized, Space> ops::Drop for SmallBox<T, Space> {
                 .unwrap_or_else(|_| unreachable_unchecked());
 
             ptr::drop_in_place::<T>(&mut **self);
-            if self.is_heap() && mem::size_of_val::<T>(&*self) != 0 {
+            if self.is_heap() && layout.size()!= 0 {
                 alloc::dealloc(self.ptr.as_ptr() as *mut u8, layout);
             }
         }
