@@ -1,9 +1,11 @@
+use core::any::Any;
 use core::cell::UnsafeCell;
 use core::cmp::Ordering;
 use core::fmt;
 use core::future::Future;
 use core::hash::Hash;
 use core::hash::{self};
+use core::hint::unreachable_unchecked;
 use core::marker::PhantomData;
 #[cfg(feature = "coerce")]
 use core::marker::Unsize;
@@ -16,7 +18,6 @@ use core::ops::CoerceUnsized;
 use core::pin::Pin;
 use core::ptr;
 use core::ptr::NonNull;
-use core::{any::Any, hint::unreachable_unchecked};
 
 use ::alloc::alloc;
 use ::alloc::alloc::Layout;
@@ -43,12 +44,13 @@ impl<T: ?Sized + Unsize<U>, U: ?Sized, Space> CoerceUnsized<SmallBox<U, Space>>
 
 /// Box value on stack or on heap depending on its size
 ///
-/// This macro is similar to `SmallBox::new`, which is used to create a new `Smallbox` instance,
-/// but relaxing the constraint `T: Sized`.
-/// In order to do that, this macro will check the coersion rules from type `T` to
-/// the target type. This macro will invoke a complie-time error on any invalid type coersion.
+/// This macro is similar to `SmallBox::new`, which is used to create a new `SmallBox` instance,
+/// but relaxes the constraint `T: Sized`.
+/// In order to do that, this macro will check the coercion rules from type `T` to
+/// the target type. This macro will invoke a compile-time error on any invalid type coercion.
 ///
-/// You can think that it has the signature of `smallbox!<U: Sized, T: ?Sized>(val: U) -> SmallBox<T, Space>`
+/// You can think that it has the signature of `smallbox!<U: Sized, T: ?Sized>(val: U) ->
+/// SmallBox<T, Space>`
 ///
 /// # Example
 ///
@@ -114,18 +116,14 @@ impl<T: ?Sized, Space> SmallBox<T, Space> {
     /// ```
     #[inline(always)]
     pub fn new(val: T) -> SmallBox<T, Space>
-    where
-        T: Sized,
-    {
+    where T: Sized {
         smallbox!(val)
     }
 
     #[doc(hidden)]
     #[inline]
     pub unsafe fn new_unchecked<U>(val: U, ptr: *const T) -> SmallBox<T, Space>
-    where
-        U: Sized,
-    {
+    where U: Sized {
         let val = ManuallyDrop::new(val);
         Self::new_copy(&val, ptr)
     }
@@ -133,8 +131,8 @@ impl<T: ?Sized, Space> SmallBox<T, Space> {
     /// Change the capacity of `SmallBox`.
     ///
     /// This method may move stack-allocated data from stack to heap
-    /// when inline space is not sufficient. And once the data
-    /// is moved to heap, it'll never be moved again.
+    /// when inline space is not sufficient. Once the data
+    /// is moved to heap, it will never be moved back to stack.
     ///
     /// # Example
     ///
@@ -183,46 +181,45 @@ impl<T: ?Sized, Space> SmallBox<T, Space> {
     }
 
     unsafe fn new_copy<U>(val: &U, metadata_ptr: *const T) -> SmallBox<T, Space>
-    where
-        U: ?Sized,
-    {
-        let size = mem::size_of_val::<U>(val);
-        let align = mem::align_of_val::<U>(val);
+    where U: ?Sized {
+        let layout = Layout::for_value::<U>(val);
+        let space_layout = Layout::new::<Space>();
 
         let mut space = MaybeUninit::<UnsafeCell<Space>>::uninit();
 
-        let (ptr_this, val_dst): (*mut u8, *mut u8) = if size == 0 {
-            (
-                // using a dangling but well-aligned pointer for ptr_this allows us to use it
-                // when a reference to a ZST is needed
-                // returning a pointer to self.space won't do, since it is not guaranteed to be properly aligned
-                sptr::without_provenance_mut(align),
-                sptr::without_provenance_mut(align),
-            )
-        } else if size > mem::size_of::<Space>() || align > mem::align_of::<Space>() {
-            // Heap
-            // Safety: MIN_ALIGNMENT is 2, aligning to 2 should not create an invalid layout
-            let layout = Layout::for_value::<U>(val)
-                .align_to(MIN_ALIGNMENT)
-                .unwrap_or_else(|_| unreachable_unchecked());
-            let heap_ptr = alloc::alloc(layout);
+        let (ptr_this, val_dst): (*mut u8, *mut u8) =
+            if layout.size() <= space_layout.size() && layout.align() <= space_layout.align() {
+                // Stack.
+                (INLINE_SENTINEL, space.as_mut_ptr().cast())
+            } else if layout.size() == 0 {
+                // ZST with alignment greater than Space, which will behave like being stored on
+                // heap but will not actually allocate.
+                (
+                    sptr::without_provenance_mut(layout.align()),
+                    sptr::without_provenance_mut(layout.align()),
+                )
+            } else {
+                // Heap.
+                let layout = Layout::for_value::<U>(val)
+                    // Safety: MIN_ALIGNMENT is 2, which is a valid power-of-two alignment.
+                    .align_to(MIN_ALIGNMENT)
+                    .unwrap_or_else(|_| unreachable_unchecked());
+                let heap_ptr = alloc::alloc(layout);
 
-            if heap_ptr.is_null() {
-                handle_alloc_error(layout)
-            }
+                if heap_ptr.is_null() {
+                    handle_alloc_error(layout)
+                }
 
-            (heap_ptr, heap_ptr)
-        } else {
-            // Stack
-            (INLINE_SENTINEL, space.as_mut_ptr().cast())
-        };
+                (heap_ptr, heap_ptr)
+            };
 
-        // `self.ptr` always holds the metadata, even if stack allocated
+        // `self.ptr` always holds the metadata, even if stack allocated.
         let ptr = sptr::with_metadata_of_mut(ptr_this, metadata_ptr);
-        // Safety: is either an INLINE_SENTINEL or is returned from the allocator and is checked for null
+        // Safety: ptr is either INLINE_SENTINEL or returned from the allocator and checked for
+        // null.
         let ptr = NonNull::new_unchecked(ptr);
 
-        ptr::copy_nonoverlapping(sptr::from_ref(val).cast(), val_dst, size);
+        ptr::copy_nonoverlapping(sptr::from_ref(val).cast(), val_dst, layout.size());
 
         SmallBox {
             space,
@@ -289,13 +286,11 @@ impl<T: ?Sized, Space> SmallBox<T, Space> {
     /// ```
     #[inline]
     pub fn into_inner(self) -> T
-    where
-        T: Sized,
-    {
+    where T: Sized {
         let this = ManuallyDrop::new(self);
         let ret_val: T = unsafe { this.as_ptr().read() };
 
-        // Just drops the heap without dropping the boxed value
+        // Just deallocates the heap memory without dropping the boxed value
         if this.is_heap() && mem::size_of::<T>() != 0 {
             // Safety: MIN_ALIGNMENT is 2, aligning to 2 should not create an invalid layout
             let layout = unsafe {
@@ -410,7 +405,7 @@ impl<T: ?Sized, Space> ops::Drop for SmallBox<T, Space> {
                 .unwrap_or_else(|_| unreachable_unchecked());
 
             ptr::drop_in_place::<T>(&mut **self);
-            if self.is_heap() && layout.size()!= 0 {
+            if self.is_heap() && layout.size() != 0 {
                 alloc::dealloc(self.ptr.as_ptr() as *mut u8, layout);
             }
         }
@@ -418,8 +413,7 @@ impl<T: ?Sized, Space> ops::Drop for SmallBox<T, Space> {
 }
 
 impl<T: Clone, Space> Clone for SmallBox<T, Space>
-where
-    T: Sized,
+where T: Sized
 {
     fn clone(&self) -> Self {
         let val: &T = self;
@@ -486,12 +480,12 @@ impl<T: ?Sized + Hash, Space> Hash for SmallBox<T, Space> {
     }
 }
 
-// We can implement Future for SmallBox soundly, even though it's not implemented for the std Box
+// We can implement Future for SmallBox soundly, even though it's not implemented for std Box.
 // The reason why it's not implemented for std Box is only because Box<T>: Unpin unconditionally,
-// even when T: !Unpin, which always allows to get &mut Box<T> from Pin<&mut Box<T>>.
-// For SmallBox, this is not the case, because it might carry the data on the stack, so if T: !Unpin,
-// SmallBox<T>: !Unpin also. That means you can't get &mut SmallBox<T> from Pin<&mut SmallBox<T>>
-// in safe code, so it's safe to implement Future for SmallBox directly.
+// even when T: !Unpin, which always allows getting &mut Box<T> from Pin<&mut Box<T>>.
+// For SmallBox, this is not the case, because it might carry the data on the stack, so if T:
+// !Unpin, then SmallBox<T>: !Unpin also. That means you can't get &mut SmallBox<T> from Pin<&mut
+// SmallBox<T>> in safe code, so it's safe to implement Future for SmallBox directly.
 impl<F: Future + ?Sized, S> Future for SmallBox<F, S> {
     type Output = F::Output;
 
@@ -499,9 +493,8 @@ impl<F: Future + ?Sized, S> Future for SmallBox<F, S> {
         self: Pin<&mut Self>,
         cx: &mut core::task::Context<'_>,
     ) -> core::task::Poll<Self::Output> {
-        // Safety: when the SmallBox is pinned, the data on the stack is pinned
-        // The data on the heap is also pinned naturally, and `F` is innacessible in safe code,
-        // so all Pin guarantees are satisfied.
+        // Safety: When the SmallBox is pinned, the data on the stack is pinned.
+        // The data on the heap is also pinned naturally, so all Pin guarantees are satisfied.
         unsafe { Pin::new_unchecked(&mut **self.get_unchecked_mut()) }.poll(cx)
     }
 }
@@ -511,8 +504,9 @@ unsafe impl<T: ?Sized + Sync, Space> Sync for SmallBox<T, Space> {}
 
 #[cfg(test)]
 mod tests {
+    use core::any::Any;
+    use core::mem;
     use core::ptr::addr_of;
-    use core::{any::Any, mem};
 
     use ::alloc::boxed::Box;
     use ::alloc::vec;
