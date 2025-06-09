@@ -179,7 +179,7 @@ impl<T: ?Sized, Space> SmallBox<T, Space> {
     /// ```
     #[inline]
     pub fn is_heap(&self) -> bool {
-        self.ptr.as_ptr() as *mut u8 != INLINE_SENTINEL as *mut u8
+        self.ptr.as_ptr() as *mut u8 != INLINE_SENTINEL
     }
 
     unsafe fn new_copy<U>(val: &U, metadata_ptr: *const T) -> SmallBox<T, Space>
