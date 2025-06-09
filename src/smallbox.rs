@@ -1,4 +1,3 @@
-use core::any::Any;
 use core::cell::UnsafeCell;
 use core::cmp::Ordering;
 use core::fmt;
@@ -16,11 +15,25 @@ use core::ops;
 use core::ops::CoerceUnsized;
 use core::pin::Pin;
 use core::ptr;
+use core::ptr::NonNull;
+use core::{any::Any, hint::unreachable_unchecked};
 
 use ::alloc::alloc;
 use ::alloc::alloc::Layout;
+use ::alloc::alloc::handle_alloc_error;
 
 use crate::sptr;
+
+/// A sentinel pointer that signals that the value is stored on the stack
+///
+/// It is never supposed to be dereferenced
+const INLINE_SENTINEL: *mut u8 = 0x1 as *mut u8;
+
+/// Minimum alignment for allocations
+///
+/// Forcing a minimum alignment prevents the allocator
+/// from returning a pointer with the same address as `INLINE_SENTINEL`
+const MIN_ALIGNMENT: usize = 2;
 
 #[cfg(feature = "coerce")]
 impl<T: ?Sized + Unsize<U>, U: ?Sized, Space> CoerceUnsized<SmallBox<U, Space>>
@@ -71,7 +84,8 @@ macro_rules! smallbox {
 /// An optimized box that store value on stack or on heap depending on its size
 pub struct SmallBox<T: ?Sized, Space> {
     space: MaybeUninit<UnsafeCell<Space>>,
-    ptr: *const T,
+    // NonNull enables Null Pointer Optimization
+    ptr: NonNull<T>,
     _phantom: PhantomData<T>,
 }
 
@@ -100,14 +114,18 @@ impl<T: ?Sized, Space> SmallBox<T, Space> {
     /// ```
     #[inline(always)]
     pub fn new(val: T) -> SmallBox<T, Space>
-    where T: Sized {
+    where
+        T: Sized,
+    {
         smallbox!(val)
     }
 
     #[doc(hidden)]
     #[inline]
     pub unsafe fn new_unchecked<U>(val: U, ptr: *const T) -> SmallBox<T, Space>
-    where U: Sized {
+    where
+        U: Sized,
+    {
         let val = ManuallyDrop::new(val);
         Self::new_copy(&val, ptr)
     }
@@ -161,31 +179,42 @@ impl<T: ?Sized, Space> SmallBox<T, Space> {
     /// ```
     #[inline]
     pub fn is_heap(&self) -> bool {
-        !self.ptr.is_null()
+        self.ptr.as_ptr() as *mut u8 != INLINE_SENTINEL
     }
 
     unsafe fn new_copy<U>(val: &U, metadata_ptr: *const T) -> SmallBox<T, Space>
-    where U: ?Sized {
+    where
+        U: ?Sized,
+    {
         let size = mem::size_of_val::<U>(val);
         let align = mem::align_of_val::<U>(val);
 
         let mut space = MaybeUninit::<UnsafeCell<Space>>::uninit();
 
         let (ptr_this, val_dst): (*mut u8, *mut u8) = if size == 0 {
-            (ptr::null_mut(), sptr::without_provenance_mut(align))
+            (INLINE_SENTINEL, sptr::without_provenance_mut(align))
         } else if size > mem::size_of::<Space>() || align > mem::align_of::<Space>() {
             // Heap
-            let layout = Layout::for_value::<U>(val);
+            // Safety: MIN_ALIGNMENT is 2, aligning to 2 should not create an invalid layout
+            let layout = Layout::for_value::<U>(val)
+                .align_to(MIN_ALIGNMENT)
+                .unwrap_or_else(|_| unreachable_unchecked());
             let heap_ptr = alloc::alloc(layout);
+
+            if heap_ptr.is_null() {
+                handle_alloc_error(layout)
+            }
 
             (heap_ptr, heap_ptr)
         } else {
             // Stack
-            (ptr::null_mut(), space.as_mut_ptr().cast())
+            (INLINE_SENTINEL, space.as_mut_ptr().cast())
         };
 
         // `self.ptr` always holds the metadata, even if stack allocated
         let ptr = sptr::with_metadata_of_mut(ptr_this, metadata_ptr);
+        // Safety: is either an INLINE_SENTINEL or is returned from the allocator and is checked for null
+        let ptr = NonNull::new_unchecked(ptr);
 
         ptr::copy_nonoverlapping(sptr::from_ref(val).cast(), val_dst, size);
 
@@ -222,18 +251,18 @@ impl<T: ?Sized, Space> SmallBox<T, Space> {
     #[inline]
     unsafe fn as_ptr(&self) -> *const T {
         if self.is_heap() {
-            self.ptr
+            self.ptr.as_ptr()
         } else {
-            sptr::with_metadata_of(self.space.as_ptr(), self.ptr)
+            sptr::with_metadata_of(self.space.as_ptr(), self.ptr.as_ptr())
         }
     }
 
     #[inline]
     unsafe fn as_mut_ptr(&mut self) -> *mut T {
         if self.is_heap() {
-            self.ptr as *mut T
+            self.ptr.as_ptr()
         } else {
-            sptr::with_metadata_of_mut(self.space.as_mut_ptr(), self.ptr)
+            sptr::with_metadata_of_mut(self.space.as_mut_ptr(), self.ptr.as_ptr())
         }
     }
 
@@ -254,15 +283,22 @@ impl<T: ?Sized, Space> SmallBox<T, Space> {
     /// ```
     #[inline]
     pub fn into_inner(self) -> T
-    where T: Sized {
+    where
+        T: Sized,
+    {
         let this = ManuallyDrop::new(self);
         let ret_val: T = unsafe { this.as_ptr().read() };
 
         // Just drops the heap without dropping the boxed value
         if this.is_heap() {
-            let layout = Layout::new::<T>();
+            // Safety: MIN_ALIGNMENT is 2, aligning to 2 should not create an invalid layout
+            let layout = unsafe {
+                Layout::new::<T>()
+                    .align_to(MIN_ALIGNMENT)
+                    .unwrap_or_else(|_| unreachable_unchecked())
+            };
             unsafe {
-                alloc::dealloc(this.ptr as *const u8 as *mut u8, layout);
+                alloc::dealloc(this.ptr.as_ptr() as *const u8 as *mut u8, layout);
             }
         }
 
@@ -363,17 +399,21 @@ impl<T: ?Sized, Space> ops::DerefMut for SmallBox<T, Space> {
 impl<T: ?Sized, Space> ops::Drop for SmallBox<T, Space> {
     fn drop(&mut self) {
         unsafe {
-            let layout = Layout::for_value::<T>(&*self);
+            let layout = Layout::for_value::<T>(&*self)
+                .align_to(MIN_ALIGNMENT)
+                .unwrap_or_else(|_| unreachable_unchecked());
+
             ptr::drop_in_place::<T>(&mut **self);
             if self.is_heap() {
-                alloc::dealloc(self.ptr as *const u8 as *mut u8, layout);
+                alloc::dealloc(self.ptr.as_ptr() as *const u8 as *mut u8, layout);
             }
         }
     }
 }
 
 impl<T: Clone, Space> Clone for SmallBox<T, Space>
-where T: Sized
+where
+    T: Sized,
 {
     fn clone(&self) -> Self {
         let val: &T = self;
@@ -465,8 +505,8 @@ unsafe impl<T: ?Sized + Sync, Space> Sync for SmallBox<T, Space> {}
 
 #[cfg(test)]
 mod tests {
-    use core::any::Any;
     use core::ptr::addr_of;
+    use core::{any::Any, mem};
 
     use ::alloc::boxed::Box;
     use ::alloc::vec;
@@ -701,5 +741,13 @@ mod tests {
         fn test<'short, 'long: 'short>(val: SmallBox<&'long str, S1>) -> SmallBox<&'short str, S1> {
             val
         }
+    }
+
+    #[test]
+    fn test_null_ptr_optimization() {
+        assert_eq!(
+            mem::size_of::<SmallBox<i32, S1>>(),
+            mem::size_of::<Option<SmallBox<i32, S1>>>()
+        );
     }
 }
