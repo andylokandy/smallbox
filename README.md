@@ -3,8 +3,7 @@
 [![CI Status](https://github.com/andylokandy/smallbox/actions/workflows/ci.yml/badge.svg)](https://github.com/andylokandy/smallbox/actions/workflows/ci.yml)
 [![crates.io](https://img.shields.io/crates/v/smallbox.svg)](https://crates.io/crates/smallbox)
 
-
-`Small Box` optimization: store small item on stack and fallback to heap for large item. Requires Rust 1.56+.
+**Small Box** optimization: store small items on the stack and fall back to heap allocation for large items. Requires Rust 1.56+.
 
 ## [**Documentation**](https://andylokandy.github.io/smallbox)
 
@@ -23,14 +22,14 @@ Next, add this to your crate root:
 extern crate smallbox;
 ```
 
-If you want this crate to work with dynamic-sized type, you can request it via:
+If you want this crate to work with dynamically-sized types, you can enable it via:
 
 ```toml
 [dependencies]
 smallbox = { version = "0.8", features = ["coerce"] }
 ```
 
-Currently `smallbox` by default links to the standard library, but if you would
+Currently, `smallbox` by default links to the standard library, but if you would
 instead like to use this crate in a `#![no_std]` situation or crate, you can request this via:
 
 ```toml
@@ -40,7 +39,6 @@ features = ["coerce"]
 default-features = false
 ```
 
-
 # Feature Flags
 
 This crate has the following cargo feature flags:
@@ -48,27 +46,25 @@ This crate has the following cargo feature flags:
 - `std`
   - Optional, enabled by default
   - Use libstd
-  - If `std` feature flag is opted out, `alloc` crate
-    will be linked, which requires nightly rust.
+  - If the `std` feature flag is disabled, the `alloc` crate
+    will be linked, which requires nightly Rust.
 
 - `coerce`
   - Optional
-  - Require nightly rust
-  - Allow automatic coersion from sized `SmallBox` to unsized `SmallBox`.
+  - Requires nightly Rust
+  - Allow automatic coercion from sized `SmallBox` to unsized `SmallBox`.
 
+# Unsized Types
 
-# Unsized Type
+There are two ways to create an unsized `SmallBox`: using the `smallbox!()` macro or coercing from a sized `SmallBox` instance (requires nightly compiler).
 
-There are two ways to have an unsized `SmallBox`: Using `smallbox!()` macro or coercing from a sized `SmallBox` instance(requires nightly compiler).
+Using the `smallbox!()` macro is the only option on stable Rust. This macro will check the type of the given value and the target type `T`. For any invalid type coercions, this macro will trigger a compile-time error.
 
-Using the `smallbox!()` macro is the only option on stable rust. This macro will check the type of given value and
-the target type `T`. For any invalid type coersions, this macro will invoke a compile-time error.
-
-Once the feature `coerce` is enabled, sized `SmallBox<T>` will be automatically coerced into `SmallBox<T: ?Sized>` if necessary.
+Once the `coerce` feature is enabled, sized `SmallBox<T>` will be automatically coerced into `SmallBox<T: ?Sized>` if necessary.
 
 # Example
 
-Eliminate heap alloction for small items by `SmallBox`:
+Eliminate heap allocation for small items with `SmallBox`:
 
 ```rust
 use smallbox::SmallBox;
@@ -83,13 +79,13 @@ assert_eq!(large.len(), 32);
 assert_eq!(*small, [0; 2]);
 assert_eq!(*large, [0; 32]);
 
-assert!(small.is_heap() == false);
-assert!(large.is_heap() == true);
+assert_eq!(small.is_heap(), false);
+assert_eq!(large.is_heap(), true);
 ```
 
-## Unsized type
+## Unsized Types
 
-Construct with `smallbox!()` macro:
+Construct with the `smallbox!()` macro:
 
 ```rust
 #[macro_use]
@@ -104,7 +100,7 @@ assert_eq!(array.len(), 2);
 assert_eq!(*array, [0, 1]);
 ```
 
-With `coerce` feature:
+With the `coerce` feature:
 
 ```rust
 use smallbox::SmallBox;
@@ -135,21 +131,13 @@ if let Some(num) = num.downcast_ref::<u32>() {
 }
 ```
 
-
 # Capacity
 
-The capacity is expressed by the size of type parameter `Space`,
-regardless of what actually the `Space` is.
+The capacity is expressed by the size of the type parameter `Space`, regardless of what the `Space` actually is.
 
-The crate provides some spaces in module `smallbox::space`,
-from `S1`, `S2`, `S4` to `S64`, representing `"n * usize"` spaces.
+The crate provides some space types in the `smallbox::space` module, from `S1`, `S2`, `S4` to `S64`, representing `"n * usize"` spaces.
 
-Anyway, you can defind your own space type
-such as byte array `[u8; 64]`.
-Please note that the space alignment is also important. If the alignment
-of the space is smaller than the alignment of the value, the value
-will be stored in the heap.
-
+You can also define your own space type, such as a byte array `[u8; 64]`. Please note that space alignment is also important. If the alignment of the space is smaller than the alignment of the value, the value will be stored on the heap.
 
 # Benchmark
 
@@ -167,14 +155,12 @@ test smallbox_small_item_small_space ... bench:           2 ns/iter (+/- 0)
 test result: ok. 0 passed; 0 failed; 0 ignored; 6 measured; 0 filtered out
 ```
 
-
 # Contribution
 
-All kinds of contribution are welcome.
+All kinds of contributions are welcome.
 
-- **Issue** Feel free to open an issue when you find typos, bugs, or have any question.
-- **Pull requests**. Better implementation, more tests, more documents and typo fixes are all welcome.
-
+- **Issues** Feel free to open an issue when you find typos, bugs, or have any questions.
+- **Pull requests** Better implementations, more tests, more documentation, and typo fixes are all welcome.
 
 # License
 
