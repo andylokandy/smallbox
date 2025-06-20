@@ -22,7 +22,9 @@ mod implementation {
 
     pub const fn without_provenance_mut<T>(addr: usize) -> *mut T {
         #[allow(clippy::useless_transmute)]
-        unsafe { core::mem::transmute(addr) }
+        unsafe {
+            core::mem::transmute(addr)
+        }
     }
 
     pub const fn with_metadata_of<T: ?Sized, U: ?Sized>(ptr: *const T, meta: *const U) -> *const U {

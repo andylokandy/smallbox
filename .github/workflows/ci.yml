@@ -11,6 +11,25 @@ env:
   CARGO_INCREMENTAL: 0
 
 jobs:
+  check:
+    runs-on: ubuntu-latest
+    env:
+      FORCE_COLOR: 1
+    steps:
+      - uses: actions/checkout@v4
+      - uses: crate-ci/typos@master
+      - uses: Swatinem/rust-cache@v2
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: nightly
+          components: rustfmt, clippy
+      - name: Cargo version
+        run: cargo --version
+      - name: Check format
+        run: cargo fmt --all -- --check
+      - name: Check clippy
+        run: cargo clippy --all-targets --all-features -- --deny warnings
+
   tests:
     runs-on: ubuntu-latest
     strategy:
@@ -44,18 +63,16 @@ jobs:
           tool: nextest,cargo-nextest
       - name: Tests
         run: |
-          cargo clippy --no-default-features --features ${{ matrix.features }}
           cargo nextest run --verbose --no-default-features --features ${{ matrix.features }}
 
   miri:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
-      - name: Install Miri
-        run: |
-          rustup toolchain install nightly --component miri
-          rustup override set nightly
-          cargo miri setup
+      - uses: actions/checkout@v4
+      - uses: Swatinem/rust-cache@v2
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: nightly
       - name: Test with Miri
         run: |
           cargo miri test
