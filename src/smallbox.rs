@@ -750,7 +750,7 @@ mod tests {
         struct OveralignedZst;
 
         let zst: SmallBox<OveralignedZst, S1> = smallbox!(OveralignedZst);
-        let zst_addr = addr_of!(*zst).addr();
+        let zst_addr = addr_of!(*zst) as usize;
         assert_eq!(*zst, OveralignedZst);
         assert_eq!(zst_addr % 512, 0);
     }
@@ -766,7 +766,7 @@ mod tests {
         impl Foo for OveralignedZst {}
 
         let zst: SmallBox<dyn Foo, S1> = smallbox!(OveralignedZst);
-        let zst_addr = addr_of!(*zst).addr();
+        let zst_addr = addr_of!(*zst) as *const () as usize;
         assert_eq!(zst_addr % 512, 0);
     }
 
