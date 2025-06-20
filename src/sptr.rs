@@ -21,6 +21,7 @@ mod implementation {
     }
 
     pub const fn without_provenance_mut<T>(addr: usize) -> *mut T {
+        #[allow(clippy::useless_transmute)]
         unsafe { core::mem::transmute(addr) }
     }
 

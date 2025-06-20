@@ -19,19 +19,19 @@ jobs:
           - rust: 1.56.0 # MSRV
             features: "\"\""
           - rust: 1.56.0 # MSRV
-            features: "std"
+            features: "\"std\""
           - rust: stable
             features: "\"\""
           - rust: stable
-            features: "std"
+            features: "\"std\""
           - rust: nightly
             features: "\"\""
           - rust: nightly
-            features: "std"
+            features: "\"std\""
           - rust: nightly
-            features: "std, coerce"
+            features: "\"std, coerce\""
           - rust: nightly
-            features: "coerce"
+            features: "\"coerce\""
 
     steps:
       - uses: actions/checkout@v4
