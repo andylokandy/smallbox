@@ -28,7 +28,7 @@ use crate::sptr;
 /// A sentinel pointer that signals that the value is stored on the stack
 ///
 /// It is never supposed to be dereferenced
-const INLINE_SENTINEL: *mut u8 = 0x1 as *mut u8;
+const INLINE_SENTINEL: *mut u8 = sptr::without_provenance_mut(0x1);
 
 /// Minimum alignment for allocations
 ///
@@ -177,7 +177,7 @@ impl<T: ?Sized, Space> SmallBox<T, Space> {
     /// ```
     #[inline]
     pub fn is_heap(&self) -> bool {
-        self.ptr.as_ptr() as *mut u8 != INLINE_SENTINEL
+        self.ptr.as_ptr().cast::<u8>() != INLINE_SENTINEL
     }
 
     unsafe fn new_copy<U>(val: &U, metadata_ptr: *const T) -> SmallBox<T, Space>
@@ -299,7 +299,7 @@ impl<T: ?Sized, Space> SmallBox<T, Space> {
                     .unwrap_or_else(|_| unreachable_unchecked())
             };
             unsafe {
-                alloc::dealloc(this.ptr.as_ptr() as *const u8 as *mut u8, layout);
+                alloc::dealloc(this.ptr.as_ptr().cast::<u8>(), layout);
             }
         }
 
@@ -406,7 +406,7 @@ impl<T: ?Sized, Space> ops::Drop for SmallBox<T, Space> {
 
             ptr::drop_in_place::<T>(&mut **self);
             if self.is_heap() && layout.size() != 0 {
-                alloc::dealloc(self.ptr.as_ptr() as *mut u8, layout);
+                alloc::dealloc(self.ptr.as_ptr().cast::<u8>(), layout);
             }
         }
     }

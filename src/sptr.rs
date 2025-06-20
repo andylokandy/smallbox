@@ -16,19 +16,22 @@ mod implementation {
 mod implementation {
     use core::ptr::addr_of_mut;
 
-    fn cast_to_mut<T: ?Sized>(ptr: *const T) -> *mut T {
+    const fn cast_to_mut<T: ?Sized>(ptr: *const T) -> *mut T {
         ptr as _
     }
 
-    pub fn without_provenance_mut<T>(addr: usize) -> *mut T {
-        unsafe { core::mem::transmute(addr) }
+    pub const fn without_provenance_mut<T>(addr: usize) -> *mut T {
+        addr as *mut T
     }
 
-    pub fn with_metadata_of<T: ?Sized, U: ?Sized>(ptr: *const T, meta: *const U) -> *const U {
+    pub const fn with_metadata_of<T: ?Sized, U: ?Sized>(ptr: *const T, meta: *const U) -> *const U {
         with_metadata_of_mut(cast_to_mut(ptr), meta)
     }
 
-    pub fn with_metadata_of_mut<T: ?Sized, U: ?Sized>(ptr: *mut T, mut meta: *const U) -> *mut U {
+    pub const fn with_metadata_of_mut<T: ?Sized, U: ?Sized>(
+        ptr: *mut T,
+        mut meta: *const U,
+    ) -> *mut U {
         let meta_ptr = addr_of_mut!(meta).cast::<*mut u8>();
         unsafe { meta_ptr.write(ptr.cast::<u8>()) }
         cast_to_mut(meta)

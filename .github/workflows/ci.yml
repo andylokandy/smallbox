@@ -42,6 +42,7 @@ jobs:
           override: true
       - name: Tests
         run: |
+          cargo clippy --no-default-features --features ${{ matrix.features }}
           cargo test --verbose --no-default-features --features ${{ matrix.features }}
 
   miri:

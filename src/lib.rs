@@ -22,8 +22,8 @@
 //! smallbox = { version = "0.8", features = ["coerce"] }
 //! ```
 //!
-//! Currently `smallbox` by default links to the standard library, but if you would
-//! instead like to use this crate in a `#![no_std]` situation or crate, you can request this via:
+//! Currently `smallbox` by default links to the standard library, but if you would instead like to
+//! use this crate in a `#![no_std]` situation or crate, you can request this via:
 //!
 //! ```toml
 //! [dependencies.smallbox]
@@ -146,20 +146,20 @@
 //!
 //! # Capacity
 //!
-//! The capacity is expressed by the size of the type parameter `Space`,
-//! regardless of what the `Space` actually is.
+//! The capacity is expressed by the size of the type parameter `Space`, regardless of what the
+//! `Space` actually is.
 //!
-//! The crate provides some space types in the `smallbox::space` module,
-//! from `S1`, `S2`, `S4` to `S64`, representing `"n * usize"` spaces.
+//! The crate provides some space types in the `smallbox::space` module, from `S1`, `S2`, `S4` to
+//! `S64`, representing `"n * usize"` spaces.
 //!
-//! You can also define your own space type,
-//! such as a byte array `[u8; 64]`.
-//! Please note that space alignment is also important. If the alignment
-//! of the space is smaller than the alignment of the value, the value
-//! will be stored on the heap.
+//! You can also define your own space type, such as a byte array `[u8; 64]`. Please note that space
+//! alignment is also important. If the alignment of the space is smaller than the alignment of the
+//! value, the value will be stored on the heap.
 #![cfg_attr(feature = "nightly", feature(strict_provenance, set_ptr_value))]
 #![cfg_attr(feature = "coerce", feature(unsize, coerce_unsized))]
 #![cfg_attr(not(feature = "std"), no_std)]
+#![allow(stable_features)]
+#![deny(missing_docs)]
 #![deny(clippy::as_conversions)]
 
 extern crate alloc;

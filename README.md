@@ -58,8 +58,7 @@ This crate has the following cargo feature flags:
 
 There are two ways to create an unsized `SmallBox`: using the `smallbox!()` macro or coercing from a sized `SmallBox` instance (requires nightly compiler).
 
-Using the `smallbox!()` macro is the only option on stable Rust. This macro will check the type of the given value and
-the target type `T`. For any invalid type coercions, this macro will trigger a compile-time error.
+Using the `smallbox!()` macro is the only option on stable Rust. This macro will check the type of the given value and the target type `T`. For any invalid type coercions, this macro will trigger a compile-time error.
 
 Once the `coerce` feature is enabled, sized `SmallBox<T>` will be automatically coerced into `SmallBox<T: ?Sized>` if necessary.
 
@@ -134,17 +133,11 @@ if let Some(num) = num.downcast_ref::<u32>() {
 
 # Capacity
 
-The capacity is expressed by the size of the type parameter `Space`,
-regardless of what the `Space` actually is.
+The capacity is expressed by the size of the type parameter `Space`, regardless of what the `Space` actually is.
 
-The crate provides some space types in the `smallbox::space` module,
-from `S1`, `S2`, `S4` to `S64`, representing `"n * usize"` spaces.
+The crate provides some space types in the `smallbox::space` module, from `S1`, `S2`, `S4` to `S64`, representing `"n * usize"` spaces.
 
-You can also define your own space type,
-such as a byte array `[u8; 64]`.
-Please note that space alignment is also important. If the alignment
-of the space is smaller than the alignment of the value, the value
-will be stored on the heap.
+You can also define your own space type, such as a byte array `[u8; 64]`. Please note that space alignment is also important. If the alignment of the space is smaller than the alignment of the value, the value will be stored on the heap.
 
 # Benchmark
 
