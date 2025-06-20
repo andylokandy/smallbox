@@ -34,16 +34,15 @@ jobs:
             features: "coerce"
 
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions-rs/toolchain@v1
+      - uses: actions/checkout@v4
+      - uses: Swatinem/rust-cache@v2
+      - uses: taiki-e/install-action@v2
         with:
-          profile: minimal
-          toolchain: ${{ matrix.rust }}
-          override: true
+          tool: nextest,cargo-nextest
       - name: Tests
         run: |
           cargo clippy --no-default-features --features ${{ matrix.features }}
-          cargo test --verbose --no-default-features --features ${{ matrix.features }}
+          cargo nextest run --verbose --no-default-features --features ${{ matrix.features }}
 
   miri:
     runs-on: ubuntu-latest
