@@ -1,6 +1,9 @@
 #[cfg(feature = "nightly")]
+#[allow(clippy::incompatible_msrv)]
 mod implementation {
-    pub use core::ptr::without_provenance_mut;
+    pub const fn without_provenance_mut<T>(addr: usize) -> *mut T {
+        core::ptr::without_provenance_mut(addr)
+    }
 
     pub fn with_metadata_of<T: ?Sized, U: ?Sized>(ptr: *const T, meta: *const U) -> *const U {
         ptr.with_metadata_of(meta)
