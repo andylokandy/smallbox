@@ -20,3 +20,8 @@ nightly = ["coerce"]
 
 [dev-dependencies]
 futures = { version = "0.3", default-features = false, features = ["executor"] }
+divan = "0.1"
+
+[[bench]]
+name = "compare"
+harness = false

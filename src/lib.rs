@@ -1,127 +1,87 @@
-//! **Small Box** optimization: store small items on stack and fall back to heap for large items.
+//! # SmallBox: Space-Efficient Smart Pointers
 //!
-//! # Usage
+//! [`SmallBox`] is a space-efficient alternative to [`Box`] that stores small values on the stack
+//! and automatically falls back to heap allocation for larger values. This optimization can
+//! significantly reduce memory allocations and improve performance for applications working with
+//! many small objects.
 //!
-//! First, add the following to your `Cargo.toml`:
+//! ## Core Concept
+//!
+//! Traditional [`Box`] always heap-allocates, even for small values. [`SmallBox`] uses a
+//! configurable inline storage space and only allocates on the heap when the value exceeds
+//! this capacity.
+//!
+//! ## Quick Start
+//!
+//! Add SmallBox to your `Cargo.toml`:
 //!
 //! ```toml
 //! [dependencies]
 //! smallbox = "0.8"
 //! ```
 //!
-//! Next, add this to your crate root:
-//!
-//! ```rust
-//! extern crate smallbox;
-//! ```
-//!
-//! If you want this crate to work with dynamically-sized types, you can enable it via:
-//!
-//! ```toml
-//! [dependencies]
-//! smallbox = { version = "0.8", features = ["coerce"] }
-//! ```
-//!
-//! Currently `smallbox` by default links to the standard library, but if you would instead like to
-//! use this crate in a `#![no_std]` situation or crate, you can request this via:
-//!
-//! ```toml
-//! [dependencies.smallbox]
-//! version = "0.8"
-//! features = ["coerce"]
-//! default-features = false
-//! ```
-//!
-//!
-//! # Feature Flags
-//!
-//! This crate has the following cargo feature flags:
-//!
-//! - `std`
-//!   - Optional, enabled by default
-//!   - Use libstd
-//!   - If the `std` feature flag is disabled, the `alloc` crate will be linked, which requires
-//!     nightly Rust.
-//!
-//! - `coerce`
-//!   - Optional
-//!   - Requires nightly Rust
-//!   - Allow automatic coercion from sized `SmallBox` to unsized `SmallBox`.
-//!
-//! - `nightly`
-//!   - Optional
-//!   - Enables `coerce`
-//!   - Requires nightly Rust
-//!   - Uses strict provenance operations to be compatible with `miri`
-//!
-//! # Unsized Types
-//!
-//! There are two ways to create an unsized `SmallBox`: using the `smallbox!()` macro or coercing
-//! from a sized `SmallBox` instance.
-//!
-//! Using the `smallbox!()` macro is the only option on stable Rust. This macro will check the types
-//! of the expression and the expected type `T`. For any invalid type coercions, this macro triggers
-//! a compiler error.
-//!
-//! Once the `coerce` feature is enabled, sized `SmallBox<T>` can be coerced into `SmallBox<T:
-//! ?Sized>` if necessary.
-//!
-//! # Example
-//!
-//! Eliminate heap allocation for small items with `SmallBox`:
+//! Basic usage:
 //!
 //! ```rust
 //! use smallbox::SmallBox;
 //! use smallbox::space::S4;
 //!
-//! let small: SmallBox<_, S4> = SmallBox::new([0; 2]);
-//! let large: SmallBox<_, S4> = SmallBox::new([0; 32]);
+//! // Small values are stored on the stack
+//! let small: SmallBox<[u32; 2], S4> = SmallBox::new([1, 2]);
+//! assert!(!small.is_heap());
 //!
-//! assert_eq!(small.len(), 2);
-//! assert_eq!(large.len(), 32);
+//! // Large values automatically use heap allocation
+//! let large: SmallBox<[u32; 32], S4> = SmallBox::new([0; 32]);
+//! assert!(large.is_heap());
 //!
-//! assert_eq!(*small, [0; 2]);
-//! assert_eq!(*large, [0; 32]);
-//!
-//! assert_eq!(small.is_heap(), false);
-//! assert_eq!(large.is_heap(), true);
+//! // Use like a regular Box
+//! println!("Values: {:?} and length {}", *small, large.len());
 //! ```
 //!
-//! ## Unsized Types
+//! ## Configuration
 //!
-//! Construct with the `smallbox!()` macro:
+//! ### Feature Flags
+//!
+//! - **`std`** (enabled by default)
+//!   - Links to the standard library
+//!   - Disable for `#![no_std]` environments: `default-features = false`
+//!
+//! - **`coerce`** (optional, requires nightly)
+//!   - Enables automatic coercion from `SmallBox<T>` to `SmallBox<dyn Trait>`
+//!   - Allows more ergonomic usage with trait objects
+//!
+//! ### No-std Usage
+//!
+//! SmallBox works in `#![no_std]` environments:
+//!
+//! ```toml
+//! [dependencies]
+//! smallbox = { version = "0.8", default-features = false }
+//! ```
+//!
+//! ### Custom Space Types
+//!
+//! Define custom capacities for specific needs:
 //!
 //! ```rust
-//! #[macro_use]
-//! extern crate smallbox;
-//!
-//! # fn main() {
 //! use smallbox::SmallBox;
-//! use smallbox::space::*;
 //!
-//! let array: SmallBox<[usize], S2> = smallbox!([0usize, 1]);
+//! // Custom 128-byte capacity
+//! type MySpace = [u8; 128];
+//! type MySmallBox<T> = SmallBox<T, MySpace>;
 //!
-//! assert_eq!(array.len(), 2);
-//! assert_eq!(*array, [0, 1]);
-//! # }
+//! let value: MySmallBox<[u8; 100]> = SmallBox::new([0; 100]);
+//! assert!(!value.is_heap()); // Fits in custom space
 //! ```
 //!
-//! With the `coerce` feature:
+//! **Important**: Space alignment matters! If the space alignment is smaller than the value's
+//! required alignment, the value will be heap-allocated regardless of size.
 //!
-//! ```rust
-//! # #[cfg(feature = "coerce")]
-//! # {
-//! use smallbox::SmallBox;
-//! use smallbox::space::*;
+//! ## Working with Unsized Types
 //!
-//! let array: SmallBox<[usize], S2> = SmallBox::new([0usize, 1]);
+//! SmallBox supports unsized types like trait objects and slices through two approaches:
 //!
-//! assert_eq!(array.len(), 2);
-//! assert_eq!(*array, [0, 1]);
-//! # }
-//! ```
-//!
-//! `Any` downcasting:
+//! ### 1. Using the `smallbox!()` Macro (Stable Rust)
 //!
 //! ```rust
 //! #[macro_use]
@@ -129,32 +89,79 @@
 //!
 //! # fn main() {
 //! use std::any::Any;
+//! use smallbox::SmallBox;
+//! use smallbox::space::S4;
 //!
+//! // Create trait objects
+//! let values: Vec<SmallBox<dyn Any, S4>> = vec![
+//!     smallbox!(42u32),
+//!     smallbox!("hello world"),
+//!     smallbox!(vec![1, 2, 3]),
+//! ];
+//!
+//! // Create slices
+//! let slice: SmallBox<[i32], S4> = smallbox!([1, 2, 3, 4]);
+//! assert_eq!(slice.len(), 4);
+//! # }
+//! ```
+//!
+//! ### 2. Automatic Coercion (Nightly with `coerce` feature)
+//!
+//! ```rust
+//! # #[cfg(feature = "coerce")]
+//! # {
+//! use std::any::Any;
+//! use smallbox::SmallBox;
+//! use smallbox::space::S4;
+//!
+//! // Automatic coercion to trait objects
+//! let num: SmallBox<dyn Any, S4> = SmallBox::new(42u32);
+//! let text: SmallBox<dyn Any, S4> = SmallBox::new("hello");
+//!
+//! // Automatic coercion to slices
+//! let slice: SmallBox<[i32], S4> = SmallBox::new([1, 2, 3, 4]);
+//! # }
+//! ```
+//!
+//! ## Advanced Usage
+//!
+//! ### Type Downcasting
+//!
+//! ```rust
+//! #[macro_use]
+//! extern crate smallbox;
+//!
+//! # fn main() {
+//! use std::any::Any;
 //! use smallbox::SmallBox;
 //! use smallbox::space::S2;
 //!
-//! let num: SmallBox<dyn Any, S2> = smallbox!(1234u32);
+//! let value: SmallBox<dyn Any, S2> = smallbox!(42u32);
 //!
-//! if let Some(num) = num.downcast_ref::<u32>() {
-//!     assert_eq!(*num, 1234);
-//! } else {
-//!     unreachable!();
+//! match value.downcast::<u32>() {
+//!     Ok(num) => println!("Got number: {}", *num),
+//!     Err(original) => println!("Not a u32, got: {:?}", original.type_id()),
 //! }
 //! # }
 //! ```
 //!
+//! ### Interoperability with `Box`
 //!
-//! # Capacity
+//! Convert between [`SmallBox`] and [`Box`] when needed:
 //!
-//! The capacity is expressed by the size of the type parameter `Space`, regardless of what the
-//! `Space` actually is.
+//! ```rust
+//! use smallbox::SmallBox;
+//! use smallbox::space::S4;
 //!
-//! The crate provides some space types in the `smallbox::space` module, from `S1`, `S2`, `S4` to
-//! `S64`, representing `"n * usize"` spaces.
+//! // Box -> SmallBox (data stays on heap)
+//! let boxed = Box::new([1, 2, 3, 4]);
+//! let small_box: SmallBox<_, S4> = SmallBox::from_box(boxed);
+//! assert!(small_box.is_heap());
 //!
-//! You can also define your own space type, such as a byte array `[u8; 64]`. Please note that space
-//! alignment is also important. If the alignment of the space is smaller than the alignment of the
-//! value, the value will be stored on the heap.
+//! // SmallBox -> Box (data moves to heap if needed)
+//! let back_to_box: Box<[i32; 4]> = SmallBox::into_box(small_box);
+//! ```
+
 #![cfg_attr(feature = "nightly", feature(strict_provenance, set_ptr_value))]
 #![cfg_attr(feature = "coerce", feature(unsize, coerce_unsized))]
 #![cfg_attr(not(feature = "std"), no_std)]
