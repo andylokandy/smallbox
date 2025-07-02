@@ -22,6 +22,7 @@ use core::ptr::NonNull;
 use ::alloc::alloc;
 use ::alloc::alloc::Layout;
 use ::alloc::alloc::handle_alloc_error;
+use ::alloc::boxed::Box;
 
 use crate::sptr;
 
@@ -568,6 +569,7 @@ mod tests {
 
     use ::alloc::boxed::Box;
     use ::alloc::vec;
+    use ::alloc::vec::Vec;
 
     use super::SmallBox;
     use crate::space::*;

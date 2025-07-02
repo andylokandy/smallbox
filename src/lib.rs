@@ -89,6 +89,7 @@
 //!
 //! # fn main() {
 //! use std::any::Any;
+//!
 //! use smallbox::SmallBox;
 //! use smallbox::space::S4;
 //!
@@ -111,6 +112,7 @@
 //! # #[cfg(feature = "coerce")]
 //! # {
 //! use std::any::Any;
+//!
 //! use smallbox::SmallBox;
 //! use smallbox::space::S4;
 //!
@@ -133,6 +135,7 @@
 //!
 //! # fn main() {
 //! use std::any::Any;
+//!
 //! use smallbox::SmallBox;
 //! use smallbox::space::S2;
 //!
