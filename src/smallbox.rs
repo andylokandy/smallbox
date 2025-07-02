@@ -22,6 +22,7 @@ use core::ptr::NonNull;
 use ::alloc::alloc;
 use ::alloc::alloc::Layout;
 use ::alloc::alloc::handle_alloc_error;
+use ::alloc::boxed::Box;
 
 use crate::sptr;
 
@@ -44,7 +45,7 @@ impl<T: ?Sized + Unsize<U>, U: ?Sized, Space> CoerceUnsized<SmallBox<U, Space>>
 
 /// Box value on stack or on heap depending on its size
 ///
-/// This macro is similar to `SmallBox::new`, which is used to create a new `SmallBox` instance,
+/// This macro is similar to `SmallBox::new`, which is used to create a new [`SmallBox`] instance,
 /// but relaxes the constraint `T: Sized`.
 /// In order to do that, this macro will check the coercion rules from type `T` to
 /// the target type. This macro will invoke a compile-time error on any invalid type coercion.
@@ -86,7 +87,6 @@ macro_rules! smallbox {
 /// An optimized box that store value on stack or on heap depending on its size
 pub struct SmallBox<T: ?Sized, Space> {
     space: MaybeUninit<UnsafeCell<Space>>,
-    // NonNull enables Null Pointer Optimization
     ptr: NonNull<T>,
     _phantom: PhantomData<T>,
 }
@@ -128,7 +128,7 @@ impl<T: ?Sized, Space> SmallBox<T, Space> {
         Self::new_copy(&val, ptr)
     }
 
-    /// Change the capacity of `SmallBox`.
+    /// Change the capacity of [`SmallBox`].
     ///
     /// This method may move stack-allocated data from stack to heap
     /// when inline space is not sufficient. Once the data
@@ -200,7 +200,7 @@ impl<T: ?Sized, Space> SmallBox<T, Space> {
                 )
             } else {
                 // Heap.
-                let layout = Layout::for_value::<U>(val)
+                let layout = layout
                     // Safety: MIN_ALIGNMENT is 2, which is a valid power-of-two alignment.
                     .align_to(MIN_ALIGNMENT)
                     .unwrap_or_else(|_| unreachable_unchecked());
@@ -229,20 +229,20 @@ impl<T: ?Sized, Space> SmallBox<T, Space> {
     }
 
     unsafe fn downcast_unchecked<U: Any>(self) -> SmallBox<U, Space> {
+        let this = ManuallyDrop::new(self);
+
         let size = mem::size_of::<U>();
         let mut space = MaybeUninit::<UnsafeCell<Space>>::uninit();
 
-        if !self.is_heap() {
+        if !this.is_heap() {
             ptr::copy_nonoverlapping::<u8>(
-                self.space.as_ptr().cast(),
+                this.space.as_ptr().cast(),
                 space.as_mut_ptr().cast(),
                 size,
             );
         };
 
-        let ptr = self.ptr.cast();
-
-        mem::forget(self);
+        let ptr = this.ptr.cast();
 
         SmallBox {
             space,
@@ -304,6 +304,67 @@ impl<T: ?Sized, Space> SmallBox<T, Space> {
         }
 
         ret_val
+    }
+
+    /// Creates a [`SmallBox`] from a standard [`Box`].
+    ///
+    /// The data will always be stored on the heap since it's already allocated there.
+    /// This method transfers ownership from the [`Box`] to the [`SmallBox`] without copying
+    /// or moving the data.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # extern crate alloc;
+    /// # use alloc::boxed::Box;
+    ///
+    /// use smallbox::SmallBox;
+    /// use smallbox::space::S4;
+    ///
+    /// let boxed = Box::new([1, 2, 3, 4]);
+    /// let small_box: SmallBox<_, S4> = SmallBox::from_box(boxed);
+    ///
+    /// assert!(small_box.is_heap());
+    /// assert_eq!(*small_box, [1, 2, 3, 4]);
+    /// ```
+    pub fn from_box(boxed: ::alloc::boxed::Box<T>) -> Self {
+        unsafe {
+            let ptr = NonNull::new_unchecked(Box::into_raw(boxed));
+            let space = MaybeUninit::<UnsafeCell<Space>>::uninit();
+            SmallBox {
+                space,
+                ptr,
+                _phantom: PhantomData,
+            }
+        }
+    }
+
+    /// Converts a [`SmallBox`] into a standard [`Box`].
+    ///
+    /// If the data is stored on the stack, it will be moved to the heap.
+    /// If the data is already on the heap, ownership is transferred without
+    /// copying or moving the data.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # extern crate alloc;
+    /// # use alloc::boxed::Box;
+    ///
+    /// use smallbox::SmallBox;
+    /// use smallbox::space::S4;
+    ///
+    /// let small_box: SmallBox<_, S4> = SmallBox::new([1, 2, 3, 4]);
+    /// let boxed: Box<[i32; 4]> = SmallBox::into_box(small_box);
+    ///
+    /// assert_eq!(*boxed, [1, 2, 3, 4]);
+    /// ```
+    pub fn into_box(boxed: SmallBox<T, Space>) -> ::alloc::boxed::Box<T> {
+        unsafe {
+            let mut enforce_heap = ManuallyDrop::new(boxed.resize::<()>());
+            debug_assert!(enforce_heap.is_heap());
+            Box::from_raw(enforce_heap.as_mut_ptr())
+        }
     }
 }
 
@@ -510,6 +571,7 @@ mod tests {
 
     use ::alloc::boxed::Box;
     use ::alloc::vec;
+    use ::alloc::vec::Vec;
 
     use super::SmallBox;
     use crate::space::*;
@@ -778,5 +840,30 @@ mod tests {
             mem::size_of::<SmallBox<i32, S1>>(),
             mem::size_of::<Option<SmallBox<i32, S1>>>()
         );
+    }
+
+    #[test]
+    fn test_box_roundtrip() {
+        // Box -> SmallBox -> Box
+        let original_data = vec![1, 2, 3, 4, 5];
+        let original_box: Box<dyn Any> = Box::new(original_data.clone());
+
+        let intermediate_small_box: SmallBox<dyn Any, S4> = SmallBox::from_box(original_box);
+        assert!(intermediate_small_box.is_heap());
+
+        let final_box: Box<dyn Any> = SmallBox::into_box(intermediate_small_box);
+        let final_data: &Vec<i32> = final_box.downcast_ref().unwrap();
+        assert_eq!(original_data, *final_data);
+
+        // SmallBox -> Box -> SmallBox
+        let original_small_box: SmallBox<dyn Any, S4> = smallbox!(original_data.clone());
+        assert!(!original_small_box.is_heap());
+
+        let intermediate_box: Box<dyn Any> = SmallBox::into_box(original_small_box);
+
+        let final_small_box: SmallBox<dyn Any, S4> = SmallBox::from_box(intermediate_box);
+        assert!(final_small_box.is_heap());
+        let final_data: &Vec<i32> = final_small_box.downcast_ref().unwrap();
+        assert_eq!(original_data, *final_data);
     }
 }
