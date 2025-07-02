@@ -1,4 +1,3 @@
-use divan;
 use smallbox::SmallBox;
 use smallbox::space::*;
 

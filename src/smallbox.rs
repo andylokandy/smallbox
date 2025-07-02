@@ -315,7 +315,8 @@ impl<T: ?Sized, Space> SmallBox<T, Space> {
     /// # Example
     ///
     /// ```
-    /// use alloc::boxed::Box;
+    /// # extern crate alloc;
+    /// # use alloc::boxed::Box;
     ///
     /// use smallbox::SmallBox;
     /// use smallbox::space::S4;
@@ -347,7 +348,8 @@ impl<T: ?Sized, Space> SmallBox<T, Space> {
     /// # Example
     ///
     /// ```
-    /// use alloc::boxed::Box;
+    /// # extern crate alloc;
+    /// # use alloc::boxed::Box;
     ///
     /// use smallbox::SmallBox;
     /// use smallbox::space::S4;

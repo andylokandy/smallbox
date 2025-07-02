@@ -9,8 +9,9 @@ categories = ["data-structures"]
 readme = "README.md"
 keywords = ["box", "alloc", "dst", "stack", "no_std"]
 license = "MIT"
-rust-version = "1.56"
+rust-version = "1.80"
 edition = "2021"
+resolver = "2"
 
 [features]
 default = ["std"]
@@ -19,8 +20,8 @@ coerce = []
 nightly = ["coerce"]
 
 [dev-dependencies]
-futures = { version = "0.3", default-features = false, features = ["executor"] }
 divan = "0.1"
+futures = { version = "0.3", default-features = false, features = ["executor"] }
 
 [[bench]]
 name = "compare"

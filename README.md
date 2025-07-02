@@ -3,6 +3,7 @@
 [![CI Status](https://github.com/andylokandy/smallbox/actions/workflows/ci.yml/badge.svg)](https://github.com/andylokandy/smallbox/actions/workflows/ci.yml)
 [![crates.io](https://img.shields.io/crates/v/smallbox.svg)](https://crates.io/crates/smallbox)
 [![Documentation](https://docs.rs/smallbox/badge.svg)](https://docs.rs/smallbox)
+[![MSRV 1.80.0](https://img.shields.io/badge/MSRV-1.80.0-green?style=flat-square&logo=rust)](https://www.whatrustisit.com)
 [![License](https://img.shields.io/crates/l/smallbox.svg)](https://github.com/andylokandy/smallbox#license)
 
 A space-efficient alternative to `Box<T>` that stores small values on the stack and falls back to heap allocation for larger values. This optimization can significantly reduce memory allocations and improve performance for applications working with many small objects.
