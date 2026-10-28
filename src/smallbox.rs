@@ -362,6 +362,15 @@ impl<T: ?Sized, Space> SmallBox<T, Space> {
     pub fn into_box(boxed: SmallBox<T, Space>) -> ::alloc::boxed::Box<T> {
         unsafe {
             let mut enforce_heap = ManuallyDrop::new(boxed.resize::<()>());
+            let layout = Layout::for_value::<T>(&**enforce_heap);
+            // Safety: For 1-aligned ZSTs (`size == 0`, `align == 1`), `resize::<()>()` stores the
+            // value inline in `enforce_heap.space` (since `Layout::new::<()>() == (0, 1)`), which
+            // both triggers `debug_assert!(enforce_heap.is_heap())` and would pass a stack pointer
+            // into `Box::from_raw`. Return a well-aligned dangling pointer for ZSTs instead.
+            if layout.size() == 0 {
+                let dangling = sptr::without_provenance_mut::<u8>(layout.align());
+                return Box::from_raw(sptr::with_metadata_of_mut(dangling, enforce_heap.as_mut_ptr()));
+            }
             debug_assert!(enforce_heap.is_heap());
             Box::from_raw(enforce_heap.as_mut_ptr())
         }
@@ -865,5 +874,14 @@ mod tests {
         assert!(final_small_box.is_heap());
         let final_data: &Vec<i32> = final_small_box.downcast_ref().unwrap();
         assert_eq!(original_data, *final_data);
+    }
+
+    #[test]
+    fn test_box_roundtrip_zst() {
+        let zst_box: Box<()> = Box::new(());
+        let sb_zst: SmallBox<(), S1> = SmallBox::from_box(zst_box);
+        assert!(!sb_zst.is_heap());
+        let zst_back: Box<()> = SmallBox::into_box(sb_zst);
+        assert_eq!(*zst_back, ());
     }
 }
