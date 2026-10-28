@@ -328,13 +328,31 @@ impl<T: ?Sized, Space> SmallBox<T, Space> {
     /// assert_eq!(*small_box, [1, 2, 3, 4]);
     /// ```
     pub fn from_box(boxed: ::alloc::boxed::Box<T>) -> Self {
-        unsafe {
-            let ptr = NonNull::new_unchecked(Box::into_raw(boxed));
-            let space = MaybeUninit::<UnsafeCell<Space>>::uninit();
-            SmallBox {
-                space,
-                ptr,
-                _phantom: PhantomData,
+        let layout = Layout::for_value::<T>(&*boxed);
+        // Safety: `Box<T>` allocates with `layout.align()`, whereas `SmallBox` deallocates heap
+        // buffers with `layout.align_to(MIN_ALIGNMENT)` (`2`). When `size > 0` and
+        // `align < MIN_ALIGNMENT`, reallocate with `MIN_ALIGNMENT` and free the `Box` buffer with
+        // its exact layout so `GlobalAlloc::dealloc` preconditions are upheld.
+        if layout.size() != 0 && layout.align() < MIN_ALIGNMENT {
+            let raw = Box::into_raw(boxed);
+            unsafe {
+                let result = ManuallyDrop::new(SmallBox::<T, ()>::new_copy(&*raw, raw));
+                alloc::dealloc(raw.cast::<u8>(), layout);
+                SmallBox {
+                    space: MaybeUninit::<UnsafeCell<Space>>::uninit(),
+                    ptr: result.ptr,
+                    _phantom: PhantomData,
+                }
+            }
+        } else {
+            unsafe {
+                let ptr = NonNull::new_unchecked(Box::into_raw(boxed));
+                let space = MaybeUninit::<UnsafeCell<Space>>::uninit();
+                SmallBox {
+                    space,
+                    ptr,
+                    _phantom: PhantomData,
+                }
             }
         }
     }
@@ -372,6 +390,22 @@ impl<T: ?Sized, Space> SmallBox<T, Space> {
                 return Box::from_raw(sptr::with_metadata_of_mut(dangling, enforce_heap.as_mut_ptr()));
             }
             debug_assert!(enforce_heap.is_heap());
+            // Safety: When `align < MIN_ALIGNMENT`, `SmallBox` allocated on the heap with
+            // `align_to(MIN_ALIGNMENT)` (`2`), whereas `Box` deallocates with `layout.align()`
+            // (`1`). Reallocate with `layout` before passing to `Box::from_raw`.
+            if layout.align() < MIN_ALIGNMENT {
+                let heap_ptr = alloc::alloc(layout);
+                if heap_ptr.is_null() {
+                    handle_alloc_error(layout);
+                }
+                let src_ptr = enforce_heap.as_mut_ptr();
+                ptr::copy_nonoverlapping(src_ptr.cast::<u8>(), heap_ptr, layout.size());
+                let smallbox_layout = layout
+                    .align_to(MIN_ALIGNMENT)
+                    .unwrap_or_else(|_| unreachable_unchecked());
+                alloc::dealloc(src_ptr.cast::<u8>(), smallbox_layout);
+                return Box::from_raw(sptr::with_metadata_of_mut(heap_ptr, src_ptr));
+            }
             Box::from_raw(enforce_heap.as_mut_ptr())
         }
     }
@@ -883,5 +917,15 @@ mod tests {
         assert!(!sb_zst.is_heap());
         let zst_back: Box<()> = SmallBox::into_box(sb_zst);
         assert_eq!(*zst_back, ());
+    }
+
+    #[test]
+    fn test_box_roundtrip_align1() {
+        let bytes: Box<[u8]> = Box::from(&b"hello smallbox"[..]);
+        let sb_bytes: SmallBox<[u8], S1> = SmallBox::from_box(bytes);
+        assert!(sb_bytes.is_heap());
+        assert_eq!(&*sb_bytes, b"hello smallbox");
+        let bytes_back: Box<[u8]> = SmallBox::into_box(sb_bytes);
+        assert_eq!(&*bytes_back, b"hello smallbox");
     }
 }
