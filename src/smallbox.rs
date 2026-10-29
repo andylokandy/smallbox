@@ -40,15 +40,9 @@ impl<T: ?Sized + Unsize<U>, U: ?Sized, Space> CoerceUnsized<SmallBox<U, Space>>
 {
 }
 
-/// Box value on stack or on heap depending on its size
+/// Creates a [`SmallBox`], including for slices and trait objects on stable Rust.
 ///
-/// This macro is similar to `SmallBox::new`, which is used to create a new [`SmallBox`] instance,
-/// but relaxes the constraint `T: Sized`.
-/// In order to do that, this macro will check the coercion rules from type `T` to
-/// the target type. This macro will invoke a compile-time error on any invalid type coercion.
-///
-/// You can think that it has the signature of `smallbox!<U: Sized, T: ?Sized>(val: U) ->
-/// SmallBox<T, Space>`
+/// Stores the value inline or on the heap, just like [`SmallBox::new`].
 ///
 /// # Example
 ///
@@ -81,7 +75,9 @@ macro_rules! smallbox {
     }};
 }
 
-/// An optimized box that store value on stack or on heap depending on its size
+/// A box with inline storage for small values.
+///
+/// `Space` determines the size and alignment of the inline storage.
 pub struct SmallBox<T: ?Sized, Space> {
     space: MaybeUninit<UnsafeCell<Space>>,
     ptr: NonNull<T>,
@@ -95,7 +91,8 @@ impl<T: Default, Space> Default for SmallBox<T, Space> {
 }
 
 impl<T: ?Sized, Space> SmallBox<T, Space> {
-    /// Box value on stack or on heap depending on its size.
+    /// Creates a [`SmallBox`], storing the value inline when its size and alignment
+    /// fit in `Space`, or on the heap otherwise.
     ///
     /// # Example
     ///
@@ -125,11 +122,10 @@ impl<T: ?Sized, Space> SmallBox<T, Space> {
         Self::new_copy(&val, ptr)
     }
 
-    /// Change the capacity of [`SmallBox`].
+    /// Changes the inline capacity to `ToSpace`.
     ///
-    /// This method may move stack-allocated data from stack to heap
-    /// when inline space is not sufficient. Once the data
-    /// is moved to heap, it will never be moved back to stack.
+    /// Inline values move to the heap if they do not fit in `ToSpace`.
+    /// Values already on the heap stay there.
     ///
     /// # Example
     ///
@@ -158,9 +154,9 @@ impl<T: ?Sized, Space> SmallBox<T, Space> {
         }
     }
 
-    /// Returns true if the value is stored outside the inline space.
+    /// Returns whether the value uses heap storage.
     ///
-    /// Zero-sized values may return true without allocating any memory.
+    /// Zero-sized values may return `true` without a heap allocation.
     ///
     /// # Example
     ///
@@ -264,7 +260,7 @@ impl<T: ?Sized, Space> SmallBox<T, Space> {
         }
     }
 
-    /// Consumes the SmallBox and returns ownership of the boxed value
+    /// Consumes this [`SmallBox`] and returns the contained value.
     ///
     /// # Examples
     /// ```
@@ -296,11 +292,9 @@ impl<T: ?Sized, Space> SmallBox<T, Space> {
         ret_val
     }
 
-    /// Creates a [`SmallBox`] from a standard [`Box`].
+    /// Creates a [`SmallBox`] from a [`Box`] without reallocating or moving its contents.
     ///
-    /// Non-zero-sized values stay on the heap. This method transfers ownership from
-    /// the [`Box`] to the [`SmallBox`] without copying or moving the data.
-    /// Zero-sized values do not require a heap allocation.
+    /// The value stays on the heap even if it would fit inline.
     ///
     /// # Example
     ///
@@ -329,11 +323,9 @@ impl<T: ?Sized, Space> SmallBox<T, Space> {
         }
     }
 
-    /// Converts a [`SmallBox`] into a standard [`Box`].
+    /// Converts a [`SmallBox`] into a [`Box`].
     ///
-    /// Non-zero-sized values stored inline are moved to the heap.
-    /// If the data is already on the heap, ownership is transferred without
-    /// copying or moving the data.
+    /// Reuses an existing heap allocation, or moves an inline value into a new [`Box`].
     ///
     /// # Example
     ///
