@@ -962,6 +962,7 @@ mod tests {
         assert_eq!(boxed(), 42);
     }
 
+    // See https://github.com/rust-lang/miri/issues/5515.
     #[test]
     #[cfg_attr(miri, ignore = "Miri rejects a ZST Box at usize::MAX in Box::into_raw")]
     fn test_box_roundtrip_max_zst() {

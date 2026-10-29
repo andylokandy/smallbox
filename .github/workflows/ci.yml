@@ -35,9 +35,9 @@ jobs:
     strategy:
       matrix:
         include:
-          - rust: 1.80.0 # MSRV
+          - rust: 1.85.0 # MSRV
             features: "\"\""
-          - rust: 1.80.0 # MSRV
+          - rust: 1.85.0 # MSRV
             features: "\"std\""
           - rust: stable
             features: "\"\""
@@ -55,11 +55,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: Swatinem/rust-cache@v2
-      - uses: dtolnay/rust-toolchain@stable
-        if: matrix.rust == '1.80.0'
-      - name: Resolve MSRV-compatible dependencies
-        if: matrix.rust == '1.80.0'
-        run: cargo +stable update --config 'resolver.incompatible-rust-versions="fallback"'
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: ${{ matrix.rust }}
