@@ -5,7 +5,6 @@ use core::fmt;
 use core::future::Future;
 use core::hash::Hash;
 use core::hash::{self};
-use core::hint::unreachable_unchecked;
 use core::marker::PhantomData;
 #[cfg(feature = "coerce")]
 use core::marker::Unsize;
@@ -28,14 +27,12 @@ use crate::sptr;
 
 /// A sentinel pointer that signals that the value is stored on the stack
 ///
-/// It is never supposed to be dereferenced
-const INLINE_SENTINEL: *mut u8 = sptr::without_provenance_mut(0x1);
-
-/// Minimum alignment for allocations
-///
-/// Forcing a minimum alignment prevents the allocator
-/// from returning a pointer with the same address as `INLINE_SENTINEL`
-const MIN_ALIGNMENT: usize = 2;
+/// Rust allocations satisfy `base + size <= usize::MAX`, so a nonempty allocation
+/// cannot start at this address, regardless of alignment. A Box whose pointer
+/// equals this sentinel must contain a 1-aligned ZST, which fits in any Space.
+/// The sentinel is never dereferenced; the pointer's metadata is preserved.
+/// See https://doc.rust-lang.org/core/ptr/index.html#allocation.
+const INLINE_SENTINEL: *mut u8 = sptr::without_provenance_mut(usize::MAX);
 
 #[cfg(feature = "coerce")]
 impl<T: ?Sized + Unsize<U>, U: ?Sized, Space> CoerceUnsized<SmallBox<U, Space>>
@@ -161,7 +158,9 @@ impl<T: ?Sized, Space> SmallBox<T, Space> {
         }
     }
 
-    /// Returns true if data is allocated on heap.
+    /// Returns true if the value is stored outside the inline space.
+    ///
+    /// Zero-sized values may return true without allocating any memory.
     ///
     /// # Example
     ///
@@ -200,10 +199,6 @@ impl<T: ?Sized, Space> SmallBox<T, Space> {
                 )
             } else {
                 // Heap.
-                let layout = layout
-                    // Safety: MIN_ALIGNMENT is 2, which is a valid power-of-two alignment.
-                    .align_to(MIN_ALIGNMENT)
-                    .unwrap_or_else(|_| unreachable_unchecked());
                 let heap_ptr = alloc::alloc(layout);
 
                 if heap_ptr.is_null() {
@@ -292,12 +287,7 @@ impl<T: ?Sized, Space> SmallBox<T, Space> {
 
         // Just deallocates the heap memory without dropping the boxed value
         if this.is_heap() && mem::size_of::<T>() != 0 {
-            // Safety: MIN_ALIGNMENT is 2, aligning to 2 should not create an invalid layout
-            let layout = unsafe {
-                Layout::new::<T>()
-                    .align_to(MIN_ALIGNMENT)
-                    .unwrap_or_else(|_| unreachable_unchecked())
-            };
+            let layout = Layout::new::<T>();
             unsafe {
                 alloc::dealloc(this.ptr.as_ptr().cast::<u8>(), layout);
             }
@@ -308,9 +298,9 @@ impl<T: ?Sized, Space> SmallBox<T, Space> {
 
     /// Creates a [`SmallBox`] from a standard [`Box`].
     ///
-    /// The data will always be stored on the heap since it's already allocated there.
-    /// This method transfers ownership from the [`Box`] to the [`SmallBox`] without copying
-    /// or moving the data.
+    /// Non-zero-sized values stay on the heap. This method transfers ownership from
+    /// the [`Box`] to the [`SmallBox`] without copying or moving the data.
+    /// Zero-sized values do not require a heap allocation.
     ///
     /// # Example
     ///
@@ -341,7 +331,7 @@ impl<T: ?Sized, Space> SmallBox<T, Space> {
 
     /// Converts a [`SmallBox`] into a standard [`Box`].
     ///
-    /// If the data is stored on the stack, it will be moved to the heap.
+    /// Non-zero-sized values stored inline are moved to the heap.
     /// If the data is already on the heap, ownership is transferred without
     /// copying or moving the data.
     ///
@@ -362,6 +352,16 @@ impl<T: ?Sized, Space> SmallBox<T, Space> {
     pub fn into_box(boxed: SmallBox<T, Space>) -> ::alloc::boxed::Box<T> {
         unsafe {
             let mut enforce_heap = ManuallyDrop::new(boxed.resize::<()>());
+            let layout = Layout::for_value::<T>(&**enforce_heap);
+            if layout.size() == 0 {
+                // A ZST can remain inline after resize::<()>(). Box requires a
+                // non-null, aligned pointer with the value's original metadata.
+                let dangling = sptr::without_provenance_mut::<u8>(layout.align());
+                return Box::from_raw(sptr::with_metadata_of_mut(
+                    dangling,
+                    enforce_heap.ptr.as_ptr(),
+                ));
+            }
             debug_assert!(enforce_heap.is_heap());
             Box::from_raw(enforce_heap.as_mut_ptr())
         }
@@ -461,9 +461,7 @@ impl<T: ?Sized, Space> ops::DerefMut for SmallBox<T, Space> {
 impl<T: ?Sized, Space> ops::Drop for SmallBox<T, Space> {
     fn drop(&mut self) {
         unsafe {
-            let layout = Layout::for_value::<T>(&*self)
-                .align_to(MIN_ALIGNMENT)
-                .unwrap_or_else(|_| unreachable_unchecked());
+            let layout = Layout::for_value::<T>(&*self);
 
             ptr::drop_in_place::<T>(&mut **self);
             if self.is_heap() && layout.size() != 0 {
@@ -567,7 +565,10 @@ unsafe impl<T: ?Sized + Sync, Space> Sync for SmallBox<T, Space> {}
 mod tests {
     use core::any::Any;
     use core::mem;
+    use core::ptr;
     use core::ptr::addr_of;
+    use core::sync::atomic::AtomicUsize;
+    use core::sync::atomic::Ordering;
 
     use ::alloc::boxed::Box;
     use ::alloc::vec;
@@ -575,6 +576,7 @@ mod tests {
 
     use super::SmallBox;
     use crate::space::*;
+    use crate::sptr;
 
     #[test]
     fn test_basic() {
@@ -816,6 +818,10 @@ mod tests {
         let zst_addr = addr_of!(*zst) as usize;
         assert_eq!(*zst, OveralignedZst);
         assert_eq!(zst_addr % 512, 0);
+
+        let boxed = SmallBox::into_box(zst);
+        assert!(addr_of!(*boxed).is_aligned());
+        assert_eq!(*boxed, OveralignedZst);
     }
 
     #[test]
@@ -832,6 +838,9 @@ mod tests {
         #[allow(clippy::as_conversions)]
         let zst_addr = addr_of!(*zst) as *const () as usize;
         assert_eq!(zst_addr % 512, 0);
+
+        let boxed = SmallBox::into_box(zst);
+        assert!(addr_of!(*boxed).cast::<OveralignedZst>().is_aligned());
     }
 
     #[test]
@@ -839,6 +848,18 @@ mod tests {
         assert_eq!(
             mem::size_of::<SmallBox<i32, S1>>(),
             mem::size_of::<Option<SmallBox<i32, S1>>>()
+        );
+        assert_eq!(
+            mem::size_of::<SmallBox<[u8], S1>>(),
+            mem::size_of::<Option<SmallBox<[u8], S1>>>()
+        );
+        assert_eq!(
+            mem::size_of::<SmallBox<dyn Any, S1>>(),
+            mem::size_of::<Option<SmallBox<dyn Any, S1>>>()
+        );
+        assert_eq!(
+            mem::size_of::<SmallBox<u8, ()>>(),
+            mem::size_of::<Option<SmallBox<u8, ()>>>()
         );
     }
 
@@ -865,5 +886,183 @@ mod tests {
         assert!(final_small_box.is_heap());
         let final_data: &Vec<i32> = final_small_box.downcast_ref().unwrap();
         assert_eq!(original_data, *final_data);
+    }
+
+    #[test]
+    fn test_box_roundtrip_align1() {
+        let boxed = Box::new(42u8);
+        let ptr = addr_of!(*boxed);
+        let mut small_box: SmallBox<u8, S1> = SmallBox::from_box(boxed);
+        assert!(small_box.is_heap());
+        assert!(ptr::eq(ptr, addr_of!(*small_box)));
+        *small_box = 43;
+        let boxed = SmallBox::into_box(small_box);
+        assert!(ptr::eq(ptr, addr_of!(*boxed)));
+        assert_eq!(*boxed, 43);
+
+        let small_box = SmallBox::<u8, ()>::new(42);
+        let ptr = addr_of!(*small_box);
+        let boxed = SmallBox::into_box(small_box);
+        assert!(ptr::eq(ptr, addr_of!(*boxed)));
+        assert_eq!(*boxed, 42);
+
+        let small_box = SmallBox::<u8, S1>::new(42);
+        assert!(!small_box.is_heap());
+        let boxed = SmallBox::into_box(small_box);
+        assert_eq!(*boxed, 42);
+    }
+
+    #[test]
+    fn test_box_roundtrip_dst() {
+        let boxed: Box<[u8]> = Box::from(&b"hello smallbox"[..]);
+        let ptr = addr_of!(*boxed);
+        let mut small_box: SmallBox<[u8], S1> = SmallBox::from_box(boxed);
+        assert!(ptr::eq(ptr, addr_of!(*small_box)));
+        small_box[0] = b'H';
+        let boxed = SmallBox::into_box(small_box);
+        assert!(ptr::eq(ptr, addr_of!(*boxed)));
+        assert_eq!(&*boxed, b"Hello smallbox");
+
+        let boxed: Box<str> = Box::from("hello smallbox");
+        let ptr = addr_of!(*boxed);
+        let small_box: SmallBox<str, S1> = SmallBox::from_box(boxed);
+        assert!(ptr::eq(ptr, addr_of!(*small_box)));
+        let boxed = SmallBox::into_box(small_box);
+        assert!(ptr::eq(ptr, addr_of!(*boxed)));
+        assert_eq!(&*boxed, "hello smallbox");
+
+        let boxed: Box<dyn Any> = Box::new(42u8);
+        let ptr = addr_of!(*boxed).cast::<u8>();
+        let small_box: SmallBox<dyn Any, S1> = SmallBox::from_box(boxed);
+        assert!(ptr::eq(ptr, addr_of!(*small_box).cast::<u8>()));
+        let boxed = SmallBox::into_box(small_box);
+        assert!(ptr::eq(ptr, addr_of!(*boxed).cast::<u8>()));
+        assert_eq!(*boxed.downcast_ref::<u8>().unwrap(), 42);
+
+        let small_box: SmallBox<[u8], S1> = smallbox!([1u8, 2, 3]);
+        assert!(!small_box.is_heap());
+        let boxed = SmallBox::into_box(small_box);
+        assert_eq!(&*boxed, &[1, 2, 3]);
+    }
+
+    #[test]
+    fn test_box_roundtrip_zst() {
+        let small_box: SmallBox<(), S1> = SmallBox::from_box(Box::new(()));
+        assert!(small_box.is_heap());
+        let boxed = SmallBox::into_box(small_box);
+        assert_eq!(*boxed, ());
+
+        let small_box = SmallBox::<(), S1>::new(());
+        assert!(!small_box.is_heap());
+        let boxed = SmallBox::into_box(small_box);
+        assert_eq!(*boxed, ());
+
+        let small_box: SmallBox<[u8], S1> = smallbox!([0u8; 0]);
+        let boxed = SmallBox::into_box(small_box);
+        assert!(boxed.is_empty());
+
+        let small_box: SmallBox<[()], S1> = smallbox!([(); 3]);
+        let boxed = SmallBox::into_box(small_box);
+        assert_eq!(boxed.len(), 3);
+
+        let small_box: SmallBox<dyn Fn() -> u8, S1> = smallbox!(|| 42);
+        let boxed = SmallBox::into_box(small_box);
+        assert_eq!(boxed(), 42);
+    }
+
+    #[test]
+    fn test_box_roundtrip_max_zst() {
+        static DROPS: AtomicUsize = AtomicUsize::new(0);
+
+        struct Zst;
+        impl Drop for Zst {
+            fn drop(&mut self) {
+                DROPS.fetch_add(1, Ordering::Relaxed);
+            }
+        }
+
+        // Zst is inhabited, has size zero and alignment one, so this non-null
+        // address is valid for Box even though it equals our inline sentinel.
+        let boxed: Box<dyn Any> =
+            unsafe { Box::from_raw(sptr::without_provenance_mut::<Zst>(usize::MAX)) };
+        let small_box: SmallBox<dyn Any, ()> = SmallBox::from_box(boxed);
+        assert!(!small_box.is_heap());
+        assert!(small_box.is::<Zst>());
+        assert_eq!(DROPS.load(Ordering::Relaxed), 0);
+        let boxed = SmallBox::into_box(small_box);
+        assert!(boxed.is::<Zst>());
+        assert_eq!(DROPS.load(Ordering::Relaxed), 0);
+        drop(boxed);
+        assert_eq!(DROPS.load(Ordering::Relaxed), 1);
+
+        let ptr = ptr::slice_from_raw_parts_mut(sptr::without_provenance_mut::<Zst>(usize::MAX), 3);
+        // The slice has three inhabited ZST elements and occupies zero bytes.
+        let boxed = unsafe { Box::from_raw(ptr) };
+        let small_box: SmallBox<[Zst], ()> = SmallBox::from_box(boxed);
+        assert!(!small_box.is_heap());
+        assert_eq!(small_box.len(), 3);
+        let boxed = SmallBox::into_box(small_box);
+        assert_eq!(boxed.len(), 3);
+        drop(boxed);
+        assert_eq!(DROPS.load(Ordering::Relaxed), 4);
+
+        let ptr = ptr::slice_from_raw_parts_mut(sptr::without_provenance_mut::<u8>(usize::MAX), 0);
+        // An empty byte slice also occupies zero bytes and has alignment one.
+        let boxed = unsafe { Box::from_raw(ptr) };
+        let small_box: SmallBox<[u8], ()> = SmallBox::from_box(boxed);
+        assert!(!small_box.is_heap());
+        assert!(SmallBox::into_box(small_box).is_empty());
+    }
+
+    #[test]
+    fn test_box_drop() {
+        static DROPS: AtomicUsize = AtomicUsize::new(0);
+
+        struct Byte(u8);
+        impl Drop for Byte {
+            fn drop(&mut self) {
+                DROPS.fetch_add(1, Ordering::Relaxed);
+            }
+        }
+
+        struct Zst;
+        impl Drop for Zst {
+            fn drop(&mut self) {
+                DROPS.fetch_add(1, Ordering::Relaxed);
+            }
+        }
+
+        assert_eq!(mem::align_of::<Byte>(), 1);
+        drop(SmallBox::<Byte, S1>::from_box(Box::new(Byte(1))));
+        assert_eq!(DROPS.load(Ordering::Relaxed), 1);
+
+        let value = SmallBox::<Byte, S1>::from_box(Box::new(Byte(2))).into_inner();
+        assert_eq!(value.0, 2);
+        assert_eq!(DROPS.load(Ordering::Relaxed), 1);
+        drop(value);
+        assert_eq!(DROPS.load(Ordering::Relaxed), 2);
+
+        let small_box: SmallBox<dyn Any, ()> = smallbox!(Byte(3));
+        let boxed = SmallBox::into_box(small_box);
+        assert_eq!(boxed.downcast_ref::<Byte>().unwrap().0, 3);
+        assert_eq!(DROPS.load(Ordering::Relaxed), 2);
+        drop(boxed);
+        assert_eq!(DROPS.load(Ordering::Relaxed), 3);
+
+        let small_box: SmallBox<dyn Any, S1> = smallbox!(Zst);
+        let boxed = SmallBox::into_box(small_box);
+        assert_eq!(DROPS.load(Ordering::Relaxed), 3);
+        drop(boxed);
+        assert_eq!(DROPS.load(Ordering::Relaxed), 4);
+
+        drop(SmallBox::<Zst, S1>::from_box(Box::new(Zst)));
+        assert_eq!(DROPS.load(Ordering::Relaxed), 5);
+
+        let small_box: SmallBox<[Zst], S1> = smallbox!([Zst, Zst, Zst]);
+        let boxed = SmallBox::into_box(small_box);
+        assert_eq!(boxed.len(), 3);
+        assert_eq!(DROPS.load(Ordering::Relaxed), 5);
+        drop(boxed);
+        assert_eq!(DROPS.load(Ordering::Relaxed), 8);
     }
 }
