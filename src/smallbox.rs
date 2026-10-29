@@ -156,8 +156,6 @@ impl<T: ?Sized, Space> SmallBox<T, Space> {
 
     /// Returns whether the value uses heap storage.
     ///
-    /// Zero-sized values may return `true` without a heap allocation.
-    ///
     /// # Example
     ///
     /// ```
