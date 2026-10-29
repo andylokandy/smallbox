@@ -1,15 +1,13 @@
 //! # SmallBox: Space-Efficient Smart Pointers
 //!
-//! [`SmallBox`] is a space-efficient alternative to [`Box`] that stores small values on the stack
-//! and automatically falls back to heap allocation for larger values. This optimization can
-//! significantly reduce memory allocations and improve performance for applications working with
-//! many small objects.
+//! [`SmallBox`] stores small values inline and uses the heap when needed.
+//! Keeping values inside the [`SmallBox`] itself can avoid heap allocations.
 //!
 //! ## Core Concept
 //!
-//! Traditional [`Box`] always heap-allocates, even for small values. [`SmallBox`] uses a
-//! configurable inline storage space and only allocates on the heap when the value exceeds
-//! this capacity.
+//! The `Space` parameter provides storage inside the [`SmallBox`]. Values created with
+//! [`SmallBox::new`] or [`smallbox!`] are stored there when their size and alignment fit,
+//! and use the heap otherwise.
 //!
 //! ## Quick Start
 //!
@@ -26,7 +24,7 @@
 //! use smallbox::SmallBox;
 //! use smallbox::space::S4;
 //!
-//! // Small values are stored on the stack
+//! // Small values are stored inline
 //! let small: SmallBox<[u32; 2], S4> = SmallBox::new([1, 2]);
 //! assert!(!small.is_heap());
 //!
@@ -74,8 +72,7 @@
 //! assert!(!value.is_heap()); // Fits in custom space
 //! ```
 //!
-//! **Important**: Space alignment matters! If the space alignment is smaller than the value's
-//! required alignment, the value will be heap-allocated regardless of size.
+//! The value must fit both the size and alignment of the chosen space to be stored inline.
 //!
 //! ## Working with Unsized Types
 //!
