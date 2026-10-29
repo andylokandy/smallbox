@@ -963,6 +963,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(miri, ignore = "Miri rejects a ZST Box at usize::MAX in Box::into_raw")]
     fn test_box_roundtrip_max_zst() {
         static DROPS: AtomicUsize = AtomicUsize::new(0);
 
